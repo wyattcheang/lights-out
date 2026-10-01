@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
   const b=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   const p=await b.newPage({viewport:{width:900,height:600}});
   const errs=[];p.on('pageerror',e=>errs.push(e.message+' '+e.stack));
-  await p.goto('file://'+__dirname+'/test.html');await p.waitForTimeout(1500);
+  await p.goto('file://'+__dirname+'/test.html');await p.waitForFunction(()=>window.__T,null,{timeout:15000});await p.waitForTimeout(1500);
   const only=process.argv[2];
   const res=await p.evaluate((only)=>{
     const T=window.__T,out=[];
@@ -25,10 +25,22 @@ const { chromium } = require('playwright');
       out.push({city:T.TRACKS[i].city,t:(steps/120).toFixed(0),fin:cs.filter(c=>c.finished).length,dnf:cs.filter(c=>c.retired).length,
         stops:cs.map(c=>c.stops).join(''),one:cs.filter(c=>!c.retired&&c.used.size<2).length,sc,vsc,pen:cs.reduce((a,c)=>a+c.pen,0),
         best:Math.min(...cs.map(c=>c.bestLap||1e9)).toFixed(1),soc:minSoc.toFixed(1)+'-'+maxSoc.toFixed(1),aero:(aeroT/120/8).toFixed(0),ot:(otAct/120).toFixed(0),
-        wear:cs.map(c=>c.wear.toFixed(2)).slice(0,3).join(',')});
+        wear:cs.map(c=>c.wear.toFixed(2)).slice(0,3).join(','),
+        stuck:cs.filter(c=>!c.finished&&!c.retired).map(c=>c.code),dsq:cs.filter(c=>c.finished&&c.used.size<2).map(c=>c.code+' '+[...c.used].join(''))});
     }
     return out;
   },only);
-  console.table(res);console.log('errors',errs.slice(0,5));
+  console.table(res.map(({city,stuck,dsq,...r})=>({city,...r})));console.log('errors',errs.slice(0,5));
+  // checks: every car finishes or retires, every finisher used two compounds, no page errors
+  const fails=[];
+  if(!res.length)fails.push(only?'no circuit named '+only:'no circuits ran');
+  for(const r of res){
+    if(r.stuck.length)fails.push(r.city+': still running after '+r.t+' s: '+r.stuck.join(', '));
+    if(!r.fin)fails.push(r.city+': no car finished');
+    if(r.dsq.length)fails.push(r.city+': finished on one compound: '+r.dsq.join(', '));
+  }
+  for(const e of errs)fails.push('page error: '+e);
   await b.close();
-})();
+  if(fails.length){console.error('FAIL\n  '+fails.join('\n  '));process.exit(1);}
+  console.log('PASS',res.length,'circuits');
+})().catch(e=>{console.error(e);process.exit(1);});

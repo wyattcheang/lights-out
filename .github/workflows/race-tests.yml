@@ -1,0 +1,46 @@
+name: Race tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      # Same pins as the repo's package.json once it lands (three r128 matches the game, Playwright 1.56.1).
+      # Installed outside the checkout so this workflow doesn't create a package.json of its own.
+      - name: Install test dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/deps" && cd "$RUNNER_TEMP/deps"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund three@0.128.0 playwright@1.56.1
+          npx playwright install --with-deps chromium
+          echo "NODE_PATH=$RUNNER_TEMP/deps/node_modules" >> "$GITHUB_ENV"
+      - name: Build
+        run: |
+          python3 web/build.py
+          cp "$NODE_PATH/three/build/three.min.js" web/tests/
+      - name: Race sim on every circuit
+        run: node web/tests/sim3.js
+      - name: Two-client online race
+        run: |
+          python3 -m http.server 8765 --directory web/tests >/dev/null 2>&1 &
+          node web/tests/mp.js
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mp-screenshots
+          path: mp*.png
+          if-no-files-found: ignore
