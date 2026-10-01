@@ -36,6 +36,7 @@ jobs:
       - name: Two-client online race
         run: |
           python3 -m http.server 8765 --directory web/tests >/dev/null 2>&1 &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:8765/test_mp.html && break; sleep 1; done
           node web/tests/mp.js
       - name: Upload screenshots
         if: always()
