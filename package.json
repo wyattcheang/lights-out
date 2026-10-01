@@ -1,0 +1,14 @@
+{
+  "name": "lights-out",
+  "private": true,
+  "description": "Headless test dependencies for the Lights Out web game",
+  "scripts": {
+    "build": "python3 web/build.py && node -e \"require('fs').copyFileSync('node_modules/three/build/three.min.js','web/tests/three.min.js')\"",
+    "test:sim": "node web/tests/sim3.js",
+    "test:mp": "node web/tests/mp.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1",
+    "three": "0.128.0"
+  }
+}
