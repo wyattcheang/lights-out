@@ -2,6 +2,8 @@
 web/tests/test.html
 web/tests/test_mp.html
 web/tests/three.min.js
+# screenshots written by web/tests/mp.js
+/mp*.png
 # raw telemetry and cloned telemetry repos used by tools/elevation
 tel/
 ti20*/

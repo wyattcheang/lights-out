@@ -30,11 +30,14 @@ unity/LightsOutUnity/  Unity project assets (Assets/LightsOut) and setup guide
 
 ## Build and test (web)
 
+Needs Python 3 and Node 18+. `package.json` pins the test dependencies: three 0.128.0 (matching the game's r128) and Playwright 1.56.1.
+
 ```
-python web/build.py                      # -> web/dist/lights-out.html, web/tests/test*.html
-cp node_modules/three/build/three.min.js web/tests/   # npm i three@0.128.0 playwright
-node web/tests/sim3.js                   # race sim across every circuit
-(cd web/tests && python -m http.server 8765) & node web/tests/mp.js   # two-client online test
+npm ci                                   # three@0.128.0 + playwright@1.56.1
+npx playwright install chromium          # once, if Playwright's Chromium isn't installed yet
+npm run build                            # -> web/dist/lights-out.html, web/tests/test*.html, copies three.min.js into web/tests/
+npm run test:sim                         # race sim across every circuit
+(cd web/tests && python3 -m http.server 8765) & npm run test:mp   # two-client online test (writes mp*.png screenshots)
 ```
 
 ## Credits
