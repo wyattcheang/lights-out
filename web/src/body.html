@@ -1,0 +1,231 @@
+
+<canvas id="three" aria-label="Race view"></canvas>
+<canvas id="game" aria-label="Race view, top-down" hidden></canvas>
+
+<div id="hud" hidden>
+  <div id="tower" class="panel"></div>
+  <div id="flagbar" hidden><div id="flagText"></div><div id="flagSub"></div></div>
+  <div id="lapbox" class="panel">
+    <div class="lab" id="lapsLbl">Lap</div>
+    <div id="lapnum">1/5</div>
+    <div id="laptime" class="mono">0:00.000</div>
+    <div id="delta" class="mono"></div>
+    <div id="lastline" class="mono"></div>
+  </div>
+  <button id="pausebtn" aria-label="Pause"><svg viewBox="0 0 16 16"><rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/></svg></button>
+  <div id="lights" hidden><span class="pod"><i></i><i></i></span><span class="pod"><i></i><i></i></span><span class="pod"><i></i><i></i></span><span class="pod"><i></i><i></i></span><span class="pod"><i></i><i></i></span></div>
+  <div id="toast"></div>
+  <div id="ww" hidden>Wrong way</div>
+  <div id="radio" aria-live="polite"></div>
+  <div id="tyrebox" class="panel">
+    <div id="tyreC" style="--c:#ffd21f">M</div>
+    <div class="tw"><div class="l"><span>Tyre life</span><b id="tyreWear">100%</b></div><div id="tyreBar"></div></div>
+    <div class="nextrow"><span>Next</span><div id="tyreNext"></div><button id="boxState" data-on="0">Box: P</button></div>
+    <div id="pitInfo"></div>
+  </div>
+  <div id="dash" class="panel">
+    <div id="spd">0</div>
+    <div id="gear">N</div>
+    <div class="ers">
+      <div class="top"><span>Battery · <span id="ersMode">Balanced</span></span><b id="socVal">3.6 MJ</b></div>
+      <div id="socFill"></div>
+    </div>
+    <div class="chips"><span class="chip" id="chipAero">Corner mode</span><span class="chip" id="chipBoost">Boost</span><span class="chip" id="chipOT">Overtake</span></div>
+    <div class="pedals"><i id="pthr"></i><i id="pbrk"></i></div>
+  </div>
+  <canvas id="mini"></canvas>
+  <div id="touch" hidden>
+    <div class="grp">
+      <button data-k="left" aria-label="Steer left"><svg viewBox="0 0 24 24"><path d="M15.5 4 7 12l8.5 8 1.8-1.9L10.8 12l6.5-6.1z"/></svg></button>
+      <button data-k="right" aria-label="Steer right"><svg viewBox="0 0 24 24"><path d="M8.5 4 17 12l-8.5 8-1.8-1.9 6.5-6.1-6.5-6.1z"/></svg></button>
+    </div>
+    <div class="grp">
+      <div class="acts">
+        <button data-k="boost" aria-label="Boost">BOOST</button>
+        <button data-act="ot" aria-label="Overtake mode">OVTK</button>
+        <button data-act="box" aria-label="Box this lap">BOX</button>
+        <button data-act="ers" aria-label="Switch energy mode">ERS</button>
+      </div>
+      <button data-k="down" aria-label="Brake">BRK</button>
+      <button data-k="up" aria-label="Throttle">GAS</button>
+    </div>
+  </div>
+</div>
+
+<div id="menu">
+  <section class="side">
+    <header class="brand">
+      <div class="lamps" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <h1>Lights <span>Out</span></h1>
+      <p class="tag">Cockpit racing on 40 real circuit layouts with 2026-style energy, active aero, tyre strategy, pit stops and race control.</p>
+    </header>
+    <div class="sel">
+      <div class="eyebrow" id="selCountry">&nbsp;</div>
+      <div class="selname" id="selCity">&nbsp;</div>
+      <dl class="facts">
+        <div><dt>Lap length</dt><dd id="selLen">–</dd></div>
+        <div><dt>Opened</dt><dd id="selOpen">–</dd></div>
+        <div><dt>Type</dt><dd id="selType">–</dd></div>
+        <div><dt>Your best</dt><dd id="selBest">–</dd></div>
+      </dl>
+    </div>
+    <div class="opts">
+      <fieldset>
+        <legend>Session</legend>
+        <div class="seg">
+          <input type="radio" name="mode" id="mRace" value="race" checked><label for="mRace">Race</label>
+          <input type="radio" name="mode" id="mTT" value="tt"><label for="mTT">Time trial</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Camera</legend>
+        <div class="seg">
+          <input type="radio" name="cam" id="cCock" value="cockpit" checked><label for="cCock">Cockpit</label>
+          <input type="radio" name="cam" id="cChase" value="chase"><label for="cChase">Chase</label>
+          <input type="radio" name="cam" id="cTop" value="top"><label for="cTop">Top-down</label>
+        </div>
+      </fieldset>
+      <fieldset id="fsLaps">
+        <legend>Race distance</legend>
+        <div class="seg">
+          <input type="radio" name="laps" id="l3" value="3"><label for="l3">3 laps</label>
+          <input type="radio" name="laps" id="l5" value="5" checked><label for="l5">5 laps</label>
+          <input type="radio" name="laps" id="l10" value="10"><label for="l10">10 laps</label>
+        </div>
+      </fieldset>
+      <fieldset id="fsField">
+        <legend>Grid size</legend>
+        <div class="seg">
+          <input type="radio" name="field" id="f6" value="6"><label for="f6">6 cars</label>
+          <input type="radio" name="field" id="f8" value="8" checked><label for="f8">8 cars</label>
+          <input type="radio" name="field" id="f10" value="10"><label for="f10">10 cars</label>
+        </div>
+      </fieldset>
+      <fieldset id="fsDiff">
+        <legend>Opponents</legend>
+        <div class="seg">
+          <input type="radio" name="diff" id="dR" value="rookie"><label for="dR">Rookie</label>
+          <input type="radio" name="diff" id="dP" value="pro" checked><label for="dP">Pro</label>
+          <input type="radio" name="diff" id="dA" value="ace"><label for="dA">Ace</label>
+        </div>
+      </fieldset>
+      <fieldset id="fsInc">
+        <legend>Incidents (yellow, VSC, Safety Car)</legend>
+        <div class="seg">
+          <input type="radio" name="inc" id="iO" value="off"><label for="iO">Off</label>
+          <input type="radio" name="inc" id="iR" value="real" checked><label for="iR">Realistic</label>
+          <input type="radio" name="inc" id="iC" value="chaos"><label for="iC">Chaotic</label>
+        </div>
+      </fieldset>
+    </div>
+    <button id="go" class="go"><span id="goLabel">Start race</span><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg></button>
+    <section class="online" aria-labelledby="onlineH">
+      <h2 id="onlineH" class="eyebrow">Race online</h2>
+      <p class="muted" id="onlineNote">Connecting…</p>
+      <div id="onlineBox" hidden>
+        <div class="obtns"><button class="btn pri" id="bHostPub">Host public room</button><button class="btn" id="bHostPriv">Host private room</button></div>
+        <div class="joinrow"><label for="joinCode" class="sr">Room code</label><input id="joinCode" maxlength="6" placeholder="Room code" autocomplete="off" spellcheck="false"><button class="btn" id="bJoin">Join</button></div>
+        <div class="eyebrow" style="margin-top:12px">Public rooms</div>
+        <div id="roomList"></div>
+      </div>
+    </section>
+    <details class="help" open>
+      <summary>Controls</summary>
+      <div class="keys">
+        <span><kbd>↑</kbd> <kbd>↓</kbd></span><span>Throttle · brake</span>
+        <span><kbd>←</kbd> <kbd>→</kbd></span><span>Steer</span>
+        <span><kbd>B</kbd></span><span>Boost (hold): full battery power</span>
+        <span><kbd>O</kbd></span><span>Overtake mode, when within 1 s at detection</span>
+        <span><kbd>E</kbd></span><span>Energy map: Balanced / Recharge</span>
+        <span><kbd>P</kbd> <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span><span>Box this lap · pick Soft / Medium / Hard</span>
+        <span><kbd>C</kbd></span><span>Cockpit / chase / top-down</span>
+        <span><kbd>Esc</kbd> <kbd>M</kbd></span><span>Pause · engine sound</span>
+      </div>
+    </details>
+    <details class="help">
+      <summary>Race rules in this game</summary>
+      <ul class="rules">
+        <li><b>Energy.</b> The MGU-K adds up to 350 kW. Normal deployment fades above 290 km/h. The battery recharges under braking, lift-and-coast and clipping at the end of straights.</li>
+        <li><b>Overtake mode.</b> Within 1.0 s of the car ahead at the detection point earns +0.5 MJ and full power to 337 km/h for the next lap.</li>
+        <li><b>Active aero.</b> Wings open into Straight mode on the long straights and close when you brake or turn in. Disabled under caution.</li>
+        <li><b>Tyres.</b> Softs are fastest and wear quickest. In a dry race you must use two different compounds or be disqualified.</li>
+        <li><b>Pit lane.</b> 80 km/h limiter, about 2.5 s stationary. Unserved time penalties are served at your stop.</li>
+        <li><b>Caution.</b> No overtaking under yellow, VSC or Safety Car: give the place back within 8 s or take 5 s. Under VSC keep the delta positive.</li>
+        <li><b>Safety Car.</b> Queue behind it. After "Safety Car in this lap" the leader controls the restart; racing resumes at the line.</li>
+        <li><b>Track limits.</b> Two warnings, then black-and-white flag, then 5 s. Points go 25-18-15-12-10-8-6-4-2-1.</li>
+      </ul>
+    </details>
+    <p class="credit">Circuit outlines from <a href="https://github.com/bacinger/f1-circuits" target="_blank" rel="noopener">bacinger/f1-circuits</a> (MIT licence). Unofficial fan prototype; not affiliated with or endorsed by Formula One Licensing B.V., the FIA or any circuit. Teams and sponsors are fictional.</p>
+  </section>
+  <section class="tracks">
+    <h2>Current calendar <small>24 circuits</small></h2>
+    <div class="tgrid" id="gridCur"></div>
+    <h2>Past venues <small>16 circuits</small></h2>
+    <div class="tgrid" id="gridPast"></div>
+  </section>
+</div>
+
+<div id="prerace" class="overlay" hidden>
+  <div class="sheet">
+    <div class="eyebrow">Starting tyres</div>
+    <h3 id="preTitle">Grid</h3>
+    <p class="sub" id="preSub"></p>
+    <div id="preTyres" class="tcards"></div>
+    <div class="btns"><button class="btn pri" id="bPreGo">Go to the grid</button></div>
+  </div>
+</div>
+
+<div id="lobby" class="overlay" hidden>
+  <div class="sheet">
+    <div class="lobbyhead">
+      <div><div class="eyebrow" id="lobbyKind">Room</div><h3>Room <span id="lobbyCode" class="mono">------</span></h3></div>
+      <button class="btn" id="bCopyCode">Copy code</button>
+    </div>
+    <p class="sub"><span id="lobbySet"></span> <span id="lobbyConn" class="warn"></span></p>
+    <div class="lobbygrid">
+      <div>
+        <div class="eyebrow">Drivers <span id="lobbyCount"></span></div>
+        <ul id="lobbyPlayers" class="players"></ul>
+        <div class="eyebrow" style="margin-top:12px">Your starting tyre</div>
+        <div id="lobbyTyre" class="tpick"><button data-t="S" style="--c:#e8322e">S</button><button data-t="M" style="--c:#ffd21f">M</button><button data-t="H" style="--c:#f2f0ea">H</button></div>
+      </div>
+      <div id="lobbyHostCtl" class="hostctl">
+        <label>Circuit<select id="lTrack"></select></label>
+        <label>Laps<select id="lLaps"><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label>
+        <label>AI cars<select id="lAi"><option>0</option><option selected>3</option><option>5</option><option>7</option></select></label>
+        <label>AI level<select id="lDiff"><option value="rookie">Rookie</option><option value="pro" selected>Pro</option><option value="ace">Ace</option></select></label>
+        <label>Incidents<select id="lInc"><option value="off">Off</option><option value="real" selected>Realistic</option><option value="chaos">Chaotic</option></select></label>
+      </div>
+    </div>
+    <p class="muted small">Anyone who can open this page can join: public rooms are listed for everyone here; private rooms need the code. Up to 10 drivers.</p>
+    <div class="btns">
+      <button class="btn pri" id="bStartOnline">Start race</button>
+      <button class="btn pri" id="bReady">Ready</button>
+      <button class="btn" id="bLeave">Leave room</button>
+    </div>
+  </div>
+</div>
+
+<div id="pause" class="overlay" hidden>
+  <div class="sheet">
+    <h3>Paused</h3>
+    <p class="sub" id="pauseSub"></p>
+    <div class="btns">
+      <button class="btn pri" id="bResume">Resume</button>
+      <button class="btn" id="bRestart">Restart</button>
+      <button class="btn" id="bMenu">Change track</button>
+    </div>
+  </div>
+</div>
+
+<div id="results" class="overlay" hidden>
+  <div class="sheet">
+    <h3 id="resTitle">Chequered flag</h3>
+    <p class="sub" id="resSub"></p>
+    <div class="restable"><table class="res"><thead><tr><th>Pos</th><th>Driver</th><th class="r">Time</th><th>Tyres</th><th class="r">Best lap</th><th class="r">Pts</th></tr></thead><tbody id="resBody"></tbody></table></div>
+    <div class="btns">
+      <button class="btn pri" id="bAgain">Race again</button>
+      <button class="btn" id="bMenu2">Change track</button>
+    </div>
+  </div>
+</div>

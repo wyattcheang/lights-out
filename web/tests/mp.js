@@ -1,0 +1,34 @@
+const { chromium } = require('playwright');
+(async()=>{
+  const b=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--no-proxy-server']});
+  const ctx=await b.newContext({viewport:{width:1100,height:700}});
+  const errs=[];
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/,r=>r.abort());
+  const A=await ctx.newPage(),B=await ctx.newPage();
+  for(const [n,p] of [['A',A],['B',B]]){p.on('pageerror',e=>errs.push(n+':'+e.message));const s=await ctx.newCDPSession(p);await s.send('Emulation.setFocusEmulationEnabled',{enabled:true});}
+  await A.goto('http://127.0.0.1:8765/test_mp.html',{waitUntil:'commit'});
+  await B.goto('http://127.0.0.1:8765/test_mp.html',{waitUntil:'commit'});
+  await A.waitForTimeout(12000);
+  for(const p of [A,B])await p.evaluate(()=>{document.querySelector('#cTop').click();});
+  await A.click('#bHostPub');await A.waitForTimeout(2000);
+  await A.screenshot({path:'mp1-host-lobby.png'});
+  await B.waitForTimeout(1500);await B.screenshot({path:'mp2-guest-menu.png'});
+  const list=await B.evaluate(()=>document.querySelector('#roomList').innerText);console.log('B sees rooms:',JSON.stringify(list));
+  await B.click('.roomcard');await B.waitForTimeout(2000);
+  await B.click('#lobbyTyre button[data-t="S"]');await B.click('#bReady');await B.waitForTimeout(1500);
+  await A.screenshot({path:'mp3-host-lobby2.png'});
+  await A.selectOption('#lAi','3');await A.waitForTimeout(500);
+  await A.click('#bStartOnline');
+  const drive=async(sec)=>{const end=Date.now()+sec*1000;while(Date.now()<end){await Promise.all([A.evaluate(()=>window.__T.frame(performance.now(),true)),B.evaluate(()=>window.__T.frame(performance.now(),true))]);await A.waitForTimeout(40);}};
+  await drive(12);
+  const snap=async p=>p.evaluate(()=>{const T=window.__T;return {started:T.G.started,time:T.G.time.toFixed(2),N:T.G.neutral&&T.G.neutral.type,cars:T.G.cars.map(c=>[c.code,c.kin?'kin':c.ai?'ai':'me',c.pf.toFixed(1),Math.round(c.x),Math.round(c.y),c.tyre])}});
+  console.log('A',JSON.stringify(await snap(A)));console.log('B',JSON.stringify(await snap(B)));
+  for(const p of [A,B])await p.evaluate(()=>{const pl=window.__T.G.player;pl.ai=true;pl.skill=.9;});
+  await drive(20);
+  console.log('A2',JSON.stringify(await snap(A)));console.log('B2',JSON.stringify(await snap(B)));
+  await A.evaluate(()=>window.__T.deploySC());await drive(8);
+  console.log('A3',JSON.stringify(await snap(A)));console.log('B3',JSON.stringify(await snap(B)));
+  await B.screenshot({path:'mp4-guest-race.png'});
+  console.log('errors',errs.slice(0,5));
+  await b.close();
+})();
