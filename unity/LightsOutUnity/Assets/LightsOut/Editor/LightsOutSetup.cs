@@ -18,7 +18,7 @@ namespace LightsOut.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
-            var sun = Object.FindFirstObjectByType<Light>();
+            var sun = Object.FindAnyObjectByType<Light>();
             if (sun != null) { sun.name = "Sun"; sun.shadows = LightShadows.Soft; sun.shadowStrength = .85f; }
             var cam = Camera.main;
             if (cam != null) { cam.nearClipPlane = .05f; cam.farClipPlane = 6000f; cam.allowHDR = true; }

@@ -35,7 +35,7 @@ namespace LightsOut
             tracks = JsonUtility.FromJson<TrackList>(txt.text).tracks;
             var cam = Camera.main; if (cam == null) { var cg = new GameObject("Main Camera"); cg.tag = "MainCamera"; cam = cg.AddComponent<Camera>(); cg.AddComponent<AudioListener>(); }
             rig = new CameraRig(cam);
-            sun = FindFirstObjectByType<Light>(); if (sun == null) { var lg = new GameObject("Sun"); sun = lg.AddComponent<Light>(); sun.type = LightType.Directional; }
+            sun = FindAnyObjectByType<Light>(); if (sun == null) { var lg = new GameObject("Sun"); sun = lg.AddComponent<Light>(); sun.type = LightType.Directional; }
             sun.shadows = LightShadows.Soft; sun.transform.rotation = Quaternion.Euler(48, -35, 0);
             BuildSmoke();
             nick = "Driver" + Random.Range(100, 999);
