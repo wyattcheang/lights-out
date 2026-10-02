@@ -328,7 +328,7 @@ namespace LightsOut
             if (online.Status != "") GUILayout.Label(online.Status, small);
             GUILayout.Space(8);
             GUILayout.Label("Keys: arrows/WASD drive · B boost · O overtake · E energy map · P box · 1/2/3 next tyre · C camera · Esc pause. Gamepad: triggers, left stick, X boost.", small);
-            GUILayout.Label("Circuit outlines: bacinger/f1-circuits (MIT). Elevation from public F1 timing telemetry. Unofficial fan project; not affiliated with Formula One Licensing B.V. or the FIA.", small);
+            GUILayout.Label("Circuit outlines: bacinger/f1-circuits (MIT). Car model: \"F1 2026 concept\" by Qvist_designs (CC BY 4.0), simplified. Elevation from public F1 timing telemetry. Unofficial fan project; not affiliated with Formula One Licensing B.V. or the FIA.", small);
             GUILayout.EndScrollView(); GUILayout.EndArea();
             // circuit list
             GUILayout.BeginArea(new Rect(UiW - 316, 16, 300, UiH - 32), panel);
