@@ -119,10 +119,18 @@ namespace LightsOut
             foreach (var kv in views) kv.Value.Sync(kv.Key, track, Time.deltaTime, kv.Key == focus && rig.Mode == CamMode.Cockpit && race.Mode != SessionMode.Attract, race.Time);
             rig.Follow(focus, track, Time.deltaTime, race.Mode == SessionMode.Attract);
             CarView fv; Look.FollowCar(views.TryGetValue(focus, out fv) && fv ? fv.transform : null, focus.IsPlayer);
+            nearCars.Clear();
+            if (Look.Night)
+            {
+                var camPos = rig.Cam.transform.position;
+                foreach (var kv in views.Where(kv => kv.Key != focus && kv.Value && kv.Value.gameObject.activeSelf).OrderBy(kv => (kv.Value.transform.position - camPos).sqrMagnitude).Take(3)) nearCars.Add(kv.Value.transform);
+            }
+            Look.LightNearbyCars(nearCars);
             sun.transform.position = rig.Cam.transform.position;
             UpdateEffects(); UpdateTrackside();
         }
 
+        readonly List<Transform> nearCars = new List<Transform>();
         bool paused;
         void HandleKeys()
         {

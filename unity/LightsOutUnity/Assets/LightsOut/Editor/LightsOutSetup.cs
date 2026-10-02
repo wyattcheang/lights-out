@@ -69,6 +69,8 @@ namespace LightsOut.EditorTools
                 EditorUtility.SetDirty(rendererData);
             }
             if (!pipeline.supportsHDR) { pipeline.supportsHDR = true; EditorUtility.SetDirty(pipeline); }
+            // the road is one mesh lit by the headlamp, underglow and up to three nearby cars' lamps
+            if (pipeline.maxAdditionalLightsCount < 8) { pipeline.maxAdditionalLightsCount = 8; EditorUtility.SetDirty(pipeline); }
             GraphicsSettings.defaultRenderPipeline = pipeline;
             int level = QualitySettings.GetQualityLevel();
             for (int i = 0; i < QualitySettings.names.Length; i++) { QualitySettings.SetQualityLevel(i, false); QualitySettings.renderPipeline = pipeline; }

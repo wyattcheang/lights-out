@@ -81,9 +81,28 @@ namespace LightsOut
         }
         static Color Speckle(Color a, float amt, System.Random r) { float k = 1f + ((float)r.NextDouble() - .5f) * amt; return new Color(a.r * k, a.g * k, a.b * k, 1); }
 
-        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff, windows, facade;
+        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff, windows, facade, astro;
         public static Texture2D Asphalt { get { if (!asphalt) { var r = new System.Random(1); var b = Hex("#55585e"); asphalt = Tex(256, 256, (x, y) => Speckle(b, .35f, r)); } return asphalt; } }
-        public static Texture2D Grass { get { if (!grass) { var r = new System.Random(2); var b = Hex("#3c7136"); grass = Tex(256, 256, (x, y) => { var c = Speckle(b, .3f, r); return x < 128 ? c * 1.06f : c; }); } return grass; } }
+        // groomed grass: mowing stripes, soft large-scale patches and only a light speckle
+        public static Texture2D Grass
+        {
+            get
+            {
+                if (!grass)
+                {
+                    var r = new System.Random(2); var b = Hex("#3c7136"); const float T = Mathf.PI * 2 / 512f;
+                    grass = Tex(512, 512, (x, y) =>
+                    {
+                        float stripe = (x / 64) % 2 == 0 ? 1.07f : .95f;
+                        float patch = 1f + .07f * Mathf.Sin(x * T * 2 + 1.3f) * Mathf.Sin(y * T * 3 + .4f) + .05f * Mathf.Sin((x + y) * T * 5);
+                        return Speckle(b, .12f, r) * (stripe * patch);
+                    });
+                }
+                return grass;
+            }
+        }
+        // artificial turf beside the track: darker green with fine lengthwise ribs
+        public static Texture2D Astro { get { if (!astro) { var r = new System.Random(4); var b = Hex("#2c5a33"); astro = Tex(64, 64, (x, y) => Speckle(b, .1f, r) * (x % 8 < 4 ? 1.06f : .94f)); } return astro; } }
         public static Texture2D City { get { if (!city) { var r = new System.Random(7); var b = Hex("#6c6f74"); city = Tex(256, 256, (x, y) => (x % 128 < 2 || y % 128 < 2) ? b * .8f : Speckle(b, .2f, r)); } return city; } }
         public static Texture2D Gravel { get { if (!gravel) { var r = new System.Random(3); var b = Hex("#b6a785"); gravel = Tex(256, 256, (x, y) => Speckle(b, .5f, r)); } return gravel; } }
         // neon kerbs: cyan and magenta blocks separated by dark gaps (v runs along the track)
@@ -118,8 +137,21 @@ namespace LightsOut
                 return barrier;
             }
         }
-        // a calm crowd: mostly dark seats and clothing, with a few bright accents that glow at night
-        public static Texture2D Crowd { get { if (!crowd) { var r = new System.Random(5); string[] dark = { "#1d2027", "#262a33", "#30343d", "#3b3f48" }, acc = { "#00E5FF", "#FF2BD6", "#FFB000", "#e9edf2", "#7a8089" }; crowd = Tex(256, 128, (x, y) => y % 16 < 3 ? Hex("#14161b") : r.NextDouble() < .82 ? Hex(dark[r.Next(dark.Length)]) : Hex(acc[r.Next(acc.Length)])); } return crowd; } }
+        // a calm crowd: mostly dark seats and clothing with a few bright accents that glow at night. Each person is a
+        // 4x4 block so the texture holds together at a distance instead of shimmering.
+        public static Texture2D Crowd
+        {
+            get
+            {
+                if (!crowd)
+                {
+                    string[] dark = { "#1d2027", "#262a33", "#30343d", "#3b3f48" }, acc = { "#00E5FF", "#FF2BD6", "#FFB000", "#e9edf2", "#7a8089" }; var cell = new Color[64 * 32]; var r = new System.Random(5);
+                    for (int i = 0; i < cell.Length; i++) cell[i] = r.NextDouble() < .86 ? Hex(dark[r.Next(dark.Length)]) : Hex(acc[r.Next(acc.Length)]);
+                    crowd = Tex(256, 128, (x, y) => y % 16 < 3 ? Hex("#14161b") : cell[(y / 4) * 64 + x / 4]);
+                }
+                return crowd;
+            }
+        }
         // pit garages: dark wall, darker door openings with a team-coloured light bar, and a cyan strip under the roof (u runs up, v along)
         public static Texture2D Garage
         {

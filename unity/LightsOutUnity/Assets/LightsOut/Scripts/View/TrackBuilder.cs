@@ -28,6 +28,8 @@ namespace LightsOut
             {
                 float rc = Look.Pick(1.25f, .3f); var run = Visuals.Mat("runoff", new Color(rc, rc, rc * 1.03f), Visuals.Asphalt, Look.Pick(.3f, .65f));
                 Strip(r, "Runoff+", W / 2 - .1f, .02f, W / 2 + 5, .02f, null, run, 8, 1); Strip(r, "Runoff-", -W / 2 + .1f, .02f, -W / 2 - 5, .02f, null, run, 8, 1);
+                var astro = Visuals.Mat("astro", Look.Pick(new Color(.55f, .62f, .6f), new Color(.1f, .14f, .16f)), Visuals.Astro, .15f);
+                Strip(r, "Astro+", W / 2 + 4.9f, .018f, W / 2 + 7.4f, .018f, null, astro, 4, 1); Strip(r, "Astro-", -W / 2 - 4.9f, .018f, -W / 2 - 7.4f, .018f, null, astro, 4, 1);
                 float gc = Look.Pick(.85f, .26f); var gv = Visuals.Mat("gravel", new Color(gc, gc, gc * 1.1f), Visuals.Gravel);
                 Strip(r, "Gravel+", W / 2 + 1.1f, .035f, W / 2 + 9, .035f, t.GravP, gv, 6, 2); Strip(r, "Gravel-", -W / 2 - 1.1f, .035f, -W / 2 - 9, .035f, t.GravN, gv, 6, 2);
             }
@@ -281,6 +283,31 @@ namespace LightsOut
             return mats;
         }
 
+        // One building: up to three stacked tiers that step in, dark vertical fins on the long faces, a light strip
+        // around the top of each tier and a small plant room, with a mast on the tall ones.
+        void Tower(Transform parent, Vector3 basePos, float w, float d, float h, float yaw, Material skin, int seed)
+        {
+            var g = new GameObject("Tower"); g.transform.SetParent(parent, false); g.transform.position = basePos; g.transform.rotation = Quaternion.Euler(0, yaw, 0); g.isStatic = true;
+            var dark = Visuals.Mat("bldTrim", Look.Pick(Visuals.Hex("#2c3138"), Visuals.Hex("#07080c")), null, .6f, .5f);
+            var strip = seed % 3 == 0 ? Visuals.Neon("neonMagenta", Look.Magenta, 3f) : Visuals.Neon("neonCyan", Look.Cyan, 3f);
+            int tiers = h > 42 ? 3 : h > 16 ? 2 : 1; float[] share = tiers == 3 ? new[] { .5f, .3f, .2f } : tiers == 2 ? new[] { .62f, .38f } : new[] { 1f };
+            float y = 0, f = 1;
+            for (int i = 0; i < tiers; i++)
+            {
+                float th = h * share[i], tw = w * f, td = d * f;
+                Box(g.transform, new Vector3(0, y + th / 2, 0), new Vector3(tw, th, td), skin, i == 0).isStatic = true;
+                Box(g.transform, new Vector3(0, y + th + .12f, 0), new Vector3(tw + .5f, .24f, td + .5f), strip).isStatic = true;
+                if (i == 0)
+                {
+                    int fins = Mathf.Clamp(Mathf.RoundToInt(tw / 6f), 2, 6);
+                    for (int k = 0; k < fins; k++) { float fx = (k + .5f) / fins * tw - tw / 2; foreach (int sg in new[] { -1, 1 }) Box(g.transform, new Vector3(fx, y + th / 2, sg * (td / 2 + .2f)), new Vector3(.35f, th, .4f), dark).isStatic = true; }
+                }
+                y += th; f *= seed % 2 == 0 ? .74f : .82f;
+            }
+            Box(g.transform, new Vector3(w * .12f, y + 1.2f, -d * .1f), new Vector3(w * f * .4f, 2.4f, d * f * .4f), dark).isStatic = true;
+            if (h > 30) { Box(g.transform, new Vector3(-w * .1f, y + 6f, d * .08f), new Vector3(.25f, 12f, .25f), dark).isStatic = true; Box(g.transform, new Vector3(-w * .1f, y + 12.2f, d * .08f), new Vector3(.5f, .5f, .5f), Visuals.Neon("mastLamp", Look.Amber, 4f)).isStatic = true; }
+        }
+
         void BuildScenery(Transform r)
         {
             var rnd = new System.Random(T.Id.GetHashCode());
@@ -295,8 +322,7 @@ namespace LightsOut
                 {
                     float w = R(12, 40), d = R(12, 40), h = R(10, 80), x = R(x0, x1), y = R(y0, y1);
                     float dist = T.Nearest(x, y); if (dist < T.WallD + 8 + Math.Max(w, d) * .72f || dist > 240) continue;
-                    var b = Box(holder.transform, Visuals.World(x, y, TerrainAt(x, y) + h / 2 - 1), new Vector3(w, h, d), mats[k % mats.Length], true);
-                    b.transform.rotation = Quaternion.Euler(0, R(0, 180), 0); b.isStatic = true; k++;
+                    Tower(holder.transform, Visuals.World(x, y, TerrainAt(x, y) - 1), w, d, h, R(0, 180), mats[k % mats.Length], k); k++;
                 }
             }
             else
@@ -322,8 +348,7 @@ namespace LightsOut
                 {
                     float w = R(14, 38), d = R(12, 30), h = R(6, 24), x = R(x0, x1), y = R(y0, y1), dist = T.Nearest(x, y);
                     if (dist < T.WallD + 30 + Math.Max(w, d) * .72f || dist > 300) continue;
-                    var b = Box(holder.transform, Visuals.World(x, y, TerrainAt(x, y) + h / 2 - 1.5f), new Vector3(w, h, d), mats[nb % mats.Length], true);
-                    b.transform.rotation = Quaternion.Euler(0, R(0, 180), 0); b.isStatic = true; nb++;
+                    Tower(holder.transform, Visuals.World(x, y, TerrainAt(x, y) - 1.5f), w, d, h, R(0, 180), mats[nb % mats.Length], nb); nb++;
                 }
             }
             StaticBatchingUtility.Combine(holder);

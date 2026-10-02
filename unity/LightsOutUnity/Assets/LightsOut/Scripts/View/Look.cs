@@ -20,7 +20,7 @@ namespace LightsOut
         /// HDR colour for emissive surfaces, already scaled for the time of day.
         public static Color Hdr(Color c, float intensity) { float k = intensity * Glow; return new Color(c.r * k, c.g * k, c.b * k, 1); }
 
-        static bool applied; static Material daySky, nightSky; static Cubemap nightCube; static Light headlamp, underglow;
+        static bool applied; static Material daySky, nightSky; static Cubemap nightCube; static Light headlamp, underglow; static readonly Light[] nearLamps = new Light[3];
         static Bloom bloom; static ColorAdjustments grade; static Vignette vignette; static ChromaticAberration aberration; static FilmGrain grain;
 
         public static void Apply(bool nightRace, Light sun, Camera cam)
@@ -59,7 +59,7 @@ namespace LightsOut
             return m;
         }
 
-        /// The only real lights besides the sun: a headlamp beam and a neon underglow on the car the camera follows.
+        /// A headlamp beam and a neon underglow on the car the camera follows.
         public static void FollowCar(Transform car, bool player)
         {
             if (headlamp == null)
@@ -72,6 +72,21 @@ namespace LightsOut
             if (!headlamp.enabled) return;
             headlamp.transform.position = car.position + car.forward * 3.2f + car.up * .9f; headlamp.transform.rotation = car.rotation * Quaternion.Euler(3f, 0, 0);
             underglow.transform.position = car.position + car.up * .7f - car.forward * .4f; underglow.transform.rotation = car.rotation * Quaternion.Euler(90f, 0, 0);   // points down, so it only tints the road underglow.color = player ? Magenta : Cyan;
+        }
+
+        /// Up to three pooled headlamps for the cars closest to the camera; every other car stays emissive only.
+        public static void LightNearbyCars(System.Collections.Generic.IList<Transform> cars)
+        {
+            for (int i = 0; i < nearLamps.Length; i++)
+            {
+                if (nearLamps[i] == null)
+                {
+                    var l = nearLamps[i] = new GameObject("NearLamp" + i).AddComponent<Light>(); l.type = LightType.Spot; l.range = 60; l.spotAngle = 60; l.innerSpotAngle = 22;
+                    l.color = new Color(.78f, .9f, 1f); l.intensity = 34; l.shadows = LightShadows.None;
+                }
+                bool on = Night && cars != null && i < cars.Count && cars[i] != null; nearLamps[i].enabled = on;
+                if (on) { var car = cars[i]; nearLamps[i].transform.position = car.position + car.forward * 3.2f + car.up * .9f; nearLamps[i].transform.rotation = car.rotation * Quaternion.Euler(3f, 0, 0); }
+            }
         }
 
         static void EnsureVolume(Camera cam)
