@@ -375,98 +375,84 @@ function loftGeo(secs,seg,pw){
   const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
   return g;
 }
-function mergeGeos(list){
-  const gs=list.map(g=>g.index?g.toNonIndexed():g);let total=0;for(const g of gs)total+=g.attributes.position.count;
-  const pos=new Float32Array(total*3),nor=new Float32Array(total*3);let o=0;
-  for(const g of gs){pos.set(g.attributes.position.array,o*3);nor.set(g.attributes.normal.array,o*3);o+=g.attributes.position.count;}
-  const r=new THREE.BufferGeometry();r.setAttribute("position",new THREE.BufferAttribute(pos,3));r.setAttribute("normal",new THREE.BufferAttribute(nor,3));
-  return r;
-}
-function place(g,x,y,z,rx,ry,rz){
-  const m=new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx||0,ry||0,rz||0)),new THREE.Vector3(1,1,1));
-  g.applyMatrix4(m);return g;
-}
-function rodGeo(a,b,r){
-  const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),len=A.distanceTo(B);
-  const g=new THREE.CylinderGeometry(r,r,len,5);
-  const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),B.clone().sub(A).normalize());
-  g.applyMatrix4(new THREE.Matrix4().compose(A.clone().add(B).multiplyScalar(.5),q,new THREE.Vector3(1,1,1)));
-  return g;
+const COS_CREASE=Math.cos(40*Math.PI/180);
+function decodeGeo(d){
+  // quantized Int16 positions + Uint16 indices (tools/carmodel/build_car.py); vertices are split along
+  // creases sharper than 40 degrees so the CAD bodywork keeps its edges under smooth shading
+  const raw=s=>{const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;};
+  const q=new Int16Array(raw(d.p)),idx=new Uint16Array(raw(d.i)),nv=q.length/3,nc=idx.length;
+  const P=new Float32Array(q.length);for(let i=0;i<q.length;i++){const a=i%3;P[i]=d.lo[a]+(q[i]+32768)/65535*(d.hi[a]-d.lo[a]);}
+  const FN=new Float32Array(nc);
+  for(let f=0;f<nc;f+=3){const a=idx[f]*3,b=idx[f+1]*3,c=idx[f+2]*3;
+    const ux=P[b]-P[a],uy=P[b+1]-P[a+1],uz=P[b+2]-P[a+2],vx=P[c]-P[a],vy=P[c+1]-P[a+1],vz=P[c+2]-P[a+2];
+    let x=uy*vz-uz*vy,y=uz*vx-ux*vz,z=ux*vy-uy*vx;const l=Math.hypot(x,y,z)||1;FN[f]=x/l;FN[f+1]=y/l;FN[f+2]=z/l;}
+  const start=new Uint32Array(nv+1);for(let c=0;c<nc;c++)start[idx[c]+1]++;for(let v=0;v<nv;v++)start[v+1]+=start[v];
+  const fill=start.slice(0,nv),inc=new Uint32Array(nc);for(let c=0;c<nc;c++)inc[fill[idx[c]]++]=c;
+  const oP=[],oN=[],oI=new Uint32Array(nc);
+  for(let v=0;v<nv;v++){
+    const groups=[];
+    for(let k=start[v];k<start[v+1];k++){
+      const c=inc[k],f=c-c%3,nx=FN[f],ny=FN[f+1],nz=FN[f+2];
+      let g=groups.find(g=>g.x*nx+g.y*ny+g.z*nz>COS_CREASE);
+      if(!g){g={x:nx,y:ny,z:nz,sx:0,sy:0,sz:0,id:oP.length/3};groups.push(g);oP.push(P[v*3],P[v*3+1],P[v*3+2]);oN.push(0,0,0);}
+      g.sx+=nx;g.sy+=ny;g.sz+=nz;oI[c]=g.id;
+    }
+    for(const g of groups){const l=Math.hypot(g.sx,g.sy,g.sz)||1;oN[g.id*3]=g.sx/l;oN[g.id*3+1]=g.sy/l;oN[g.id*3+2]=g.sz/l;}
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.Float32BufferAttribute(oP,3));geo.setAttribute("normal",new THREE.Float32BufferAttribute(oN,3));
+  geo.setIndex(new THREE.BufferAttribute(oP.length/3>65535?oI:new Uint16Array(oI),1));
+  if(d.g){let o=0;d.g.forEach((n,m)=>{geo.addGroup(o,n,m);o+=n;});}
+  geo.computeBoundingSphere();geo.userData.shared=true;
+  return geo;
 }
 const SHARED={};
 function sharedGeo(){
-  if(SHARED.tyreF)return SHARED;
-  const prof=(R,w)=>{const hw=w/2,pts=[[.235,-hw],[.30,-hw],[R-.02,-hw+.02],[R,-hw+.06],[R,hw-.06],[R-.02,hw-.02],[.30,hw],[.235,hw]].map(([x,y])=>new THREE.Vector2(x,y));const g=new THREE.LatheGeometry(pts,26);g.rotateX(Math.PI/2);return g;};
-  SHARED.tyreF=prof(.36,.37);SHARED.tyreR=prof(.38,.45);
-  SHARED.rimF=new THREE.CylinderGeometry(.235,.235,.33,18);SHARED.rimF.rotateX(Math.PI/2);
-  SHARED.rimR=new THREE.CylinderGeometry(.235,.235,.41,18);SHARED.rimR.rotateX(Math.PI/2);
-  SHARED.band=new THREE.TorusGeometry(.305,.014,5,36);
+  if(SHARED.body)return SHARED;
+  const M=CAR_MODEL;
+  SHARED.body=decodeGeo(M.hi.body);SHARED.lo=decodeGeo(M.lo);SHARED.fFlap=decodeGeo(M.hi.fFlap);SHARED.rFlap=decodeGeo(M.hi.rFlap);
+  SHARED.wheels=M.wheels.map(w=>({at:w.at,w:w.w,front:w.front,geo:decodeGeo(w)}));
+  SHARED.band=new THREE.TorusGeometry(.305,.014,5,36);SHARED.band.userData.shared=true;
   return SHARED;
 }
 function stdMat(color,rough,metal){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal,envMap:R3.env||null,envMapIntensity:.9});}
+const CAR_LOD_DIST=45;
 function carMesh(color,accent,me,ghost){
+  // body: "F1 2026 concept" by Qvist_designs (CC BY 4.0), see carmodel.js; near and far detail levels
   const g=new THREE.Group(),SG=sharedGeo();
   const mk=(c,r,m)=>ghost?new THREE.MeshBasicMaterial({color:0xb65cff,transparent:true,opacity:.3,depthWrite:false}):stdMat(c,r,m);
   const paint=mk(color,.3,.45),acc=mk(accent,.35,.35),carbon=mk(0x17191c,.55,.25),tyreM=mk(0x151515,.92,0);
-  const P=[],A=[],C=[];
-  // monocoque, nose and engine cover
-  P.push(loftGeo([[3.02,.09,.07,.26],[2.78,.2,.13,.28],[2.2,.3,.21,.32],[1.5,.42,.3,.39],[.95,.64,.42,.45],[.4,.8,.46,.48],[-.35,.84,.48,.48],[-.85,.8,.66,.56],[-1.5,.62,.56,.55],[-2.1,.4,.4,.48],[-2.48,.26,.28,.44]],20,3));
-  // sidepods
-  for(const s of[-1,1])P.push(loftGeo([[.42,.08,.28,.36,.62*s],[.22,.42,.44,.38,.6*s],[-.5,.46,.46,.38,.58*s],[-1.2,.34,.38,.35,.5*s],[-1.9,.14,.24,.32,.36*s]],16,3.4));
-  // airbox / roll hoop and engine fin
-  C.push(loftGeo([[-.22,.18,.12,.88],[-.42,.34,.3,.9],[-.9,.3,.32,.84],[-1.6,.1,.22,.7],[-2.25,.04,.14,.6]],14,2.6));
-  A.push(place(new THREE.BoxGeometry(.18,.06,.07),-.45,1.07,0));
-  // floor and plank
-  C.push(place(new THREE.BoxGeometry(3.9,.045,1.5),-.45,.1,0));C.push(place(new THREE.BoxGeometry(3.7,.05,.3),-.45,.07,0));
-  // front wing main plane and endplates
-  C.push(place(new THREE.BoxGeometry(.34,.035,1.98),2.88,.11,0));
-  for(const s of[-1,1]){A.push(place(new THREE.BoxGeometry(.6,.27,.03),2.78,.2,s*.99));}
-  // rear wing endplates, beam wing, pylon
-  for(const s of[-1,1])A.push(place(new THREE.BoxGeometry(.72,.6,.03),-2.5,.82,s*.52));
-  C.push(place(new THREE.BoxGeometry(.28,.04,1.02),-2.56,.88,0));
-  C.push(place(new THREE.BoxGeometry(.2,.03,.82),-2.42,.44,0));C.push(place(new THREE.BoxGeometry(.08,.42,.05),-2.5,.66,0));
-  // halo
-  {const hoop=new THREE.TorusGeometry(.5,.022,6,22,Math.PI);hoop.rotateZ(-Math.PI/2);hoop.rotateX(Math.PI/2);C.push(place(hoop,.05,1.17,0));
-   C.push(place(new THREE.BoxGeometry(.03,.52,.045),.6,.92,0,0,0,.28));
-   for(const s of[-1,1])C.push(rodGeo([-.42,1.13,s*.48],[-.55,.72,s*.4],.022));}
-  // mirrors
-  for(const s of[-1,1]){C.push(rodGeo([.48,.6,s*.36],[.5,.7,s*.54],.01));P.push(place(new THREE.BoxGeometry(.05,.055,.13),.52,.71,s*.58));}
-  // suspension
-  for(const s of[-1,1]){
-    C.push(rodGeo([1.25,.47,s*.18],[1.55,.46,s*.7],.016),rodGeo([1.85,.45,s*.18],[1.55,.46,s*.7],.016),rodGeo([1.3,.3,s*.2],[1.55,.28,s*.72],.016),rodGeo([1.8,.29,s*.18],[1.55,.28,s*.72],.016));
-    C.push(rodGeo([-1.45,.5,s*.3],[-1.8,.45,s*.66],.016),rodGeo([-2.05,.48,s*.2],[-1.8,.45,s*.66],.016),rodGeo([-1.5,.3,s*.3],[-1.8,.3,s*.66],.016));
-  }
-  if(!ghost)for(const s of[-1,1]){const gl=new THREE.Mesh(new THREE.PlaneGeometry(.115,.045),new THREE.MeshBasicMaterial({color:0x9fb3c8}));gl.position.set(.494,.71,s*.58);gl.rotation.y=-Math.PI/2;g.add(gl);}
-  const add=(geos,mat)=>{const m=new THREE.Mesh(mergeGeos(geos),mat);m.castShadow=!ghost;g.add(m);return m;};
-  add(P,paint);add(A,acc);add(C,carbon);
-  // active-aero flaps
-  const fFlap=new THREE.Group();fFlap.position.set(2.72,.19,0);const ff=new THREE.Mesh(new THREE.BoxGeometry(.22,.03,1.78),paint);ff.position.x=-.1;ff.castShadow=!ghost;fFlap.add(ff);g.add(fFlap);
-  const rFlap=new THREE.Group();rFlap.position.set(-2.42,1.0,0);const rf=new THREE.Mesh(new THREE.BoxGeometry(.24,.04,1.02),acc);rf.position.x=-.12;rf.castShadow=!ghost;rFlap.add(rf);g.add(rFlap);
+  const bodyMats=[paint,acc,carbon];
+  const lod=new THREE.LOD(),near=new THREE.Group();
+  const body=new THREE.Mesh(SG.body,bodyMats);body.castShadow=!ghost;near.add(body);
+  const far=new THREE.Mesh(SG.lo,bodyMats);far.castShadow=!ghost;
+  lod.addLevel(near,0);lod.addLevel(far,CAR_LOD_DIST);g.add(lod);
+  // active-aero flaps (pivots on their leading edges; the far level has them fixed)
+  const flap=(name,mat)=>{const piv=new THREE.Group();piv.position.fromArray(CAR_MODEL.hi[name].at);const m=new THREE.Mesh(SG[name],mat);m.castShadow=!ghost;piv.add(m);near.add(piv);return piv;};
+  const fFlap=flap("fFlap",carbon),rFlap=flap("rFlap",acc);
+  if(!ghost)for(const s of[-1,1]){const gl=new THREE.Mesh(new THREE.PlaneGeometry(.16,.045),new THREE.MeshBasicMaterial({color:0x9fb3c8}));gl.position.set(.412,.706,s*.577);gl.rotation.y=-Math.PI/2;near.add(gl);}
   // driver
-  const helmet=new THREE.Group();helmet.position.set(-.05,.8,0);
-  helmet.add(new THREE.Mesh(new THREE.SphereGeometry(.165,14,12),mk(me?0xffffff:accent,.25,.3)));
-  const visor=new THREE.Mesh(new THREE.SphereGeometry(.168,14,8,-.9,1.8,1.2,.45),mk(0x0b0d10,.1,.6));visor.rotation.y=Math.PI/2;helmet.add(visor);
+  const helmet=new THREE.Group();helmet.position.set(-.1,.82,0);
+  helmet.add(new THREE.Mesh(new THREE.SphereGeometry(.15,14,12),mk(me?0xffffff:accent,.25,.3)));
+  const visor=new THREE.Mesh(new THREE.SphereGeometry(.153,14,8,-.9,1.8,1.2,.45),mk(0x0b0d10,.1,.6));visor.rotation.y=Math.PI/2;helmet.add(visor);
   g.add(helmet);
-  // wheels
+  // wheels: model has right-hand wheels, mirrored for the left
   const bandM=ghost?tyreM:new THREE.MeshBasicMaterial({color:0xffd21f});
-  const rimMat=ghost?tyreM:[stdMat(0x2b2e33,.4,.6),new THREE.MeshStandardMaterial({map:R3.tex.rim,roughness:.4,metalness:.5}),new THREE.MeshStandardMaterial({map:R3.tex.rim,roughness:.4,metalness:.5})];
+  const rimMat=ghost?tyreM:stdMat(0x2b2e33,.4,.6);
   const fronts=[],spins=[];
-  const wheel=(x,y,z,front)=>{
-    const piv=new THREE.Group();piv.position.set(x,y,z);
+  for(const W of SG.wheels)for(const s of[-1,1]){
+    const piv=new THREE.Group();piv.position.set(W.at[0],W.at[1],W.at[2]*s);
     const spin=new THREE.Group();piv.add(spin);
-    const ty=new THREE.Mesh(front?SG.tyreF:SG.tyreR,tyreM);ty.castShadow=!ghost;spin.add(ty);
-    spin.add(new THREE.Mesh(front?SG.rimF:SG.rimR,rimMat));
-    const hw=(front?.37:.45)/2+.003;
-    for(const s of[-1,1]){const bd=new THREE.Mesh(SG.band,bandM);bd.position.z=s*hw;piv.add(bd);}
-    g.add(piv);spins.push(spin);if(front)fronts.push(piv);
-  };
-  for(const s of[-1,1]){wheel(1.55,.36,.86*s,true);wheel(-1.8,.38,.84*s,false);}
+    const wm=new THREE.Mesh(W.geo,[tyreM,rimMat]);wm.castShadow=!ghost;if(s<0)wm.scale.z=-1;spin.add(wm);
+    for(const k of[-1,1]){const bd=new THREE.Mesh(SG.band,bandM);bd.position.z=k*(W.w/2+.003);piv.add(bd);}
+    g.add(piv);spins.push(spin);if(W.front)fronts.push(piv);
+  }
   // rain/ERS light
   const lightM=new THREE.MeshBasicMaterial({color:0x330000});
-  const rl=new THREE.Mesh(new THREE.BoxGeometry(.04,.08,.14),lightM);rl.position.set(-2.63,.5,0);g.add(rl);
+  const rl=new THREE.Mesh(new THREE.BoxGeometry(.04,.08,.14),lightM);rl.position.set(-2.6,.39,0);g.add(rl);
   let sw=null,screen=null;
   if(me&&!ghost){
-    sw=new THREE.Group();sw.position.set(.4,.72,0);
+    sw=new THREE.Group();sw.position.set(.28,.72,0);
     sw.add(new THREE.Mesh(new THREE.BoxGeometry(.04,.13,.27),carbon));
     const sc=document.createElement("canvas");sc.width=160;sc.height=80;screen={c:sc,g:sc.getContext("2d"),t:new THREE.CanvasTexture(sc)};
     const scr=new THREE.Mesh(new THREE.PlaneGeometry(.11,.055),new THREE.MeshBasicMaterial({map:screen.t}));scr.position.set(-.022,.005,0);scr.rotation.y=-Math.PI/2;sw.add(scr);
@@ -490,7 +476,7 @@ function scMesh(){
   linTree(g);
   return{g,lampA,lampB};
 }
-function disposeGroup(grp){grp.traverse(o=>{if(o.geometry&&!Object.values(SHARED).includes(o.geometry))o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});}
+function disposeGroup(grp){grp.traverse(o=>{if(o.geometry&&!o.geometry.userData.shared)o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});}
 function reset3DCars(){
   if(!R3.ok)return;
   for(const m of R3.cars.values()){R3.scene.remove(m.g);disposeGroup(m.g);}
@@ -525,8 +511,8 @@ function sync3D(dt){
     const spin=(c.vf||0)*dt/.37;for(const s of m.spins)s.rotation.z-=spin;
     if(m.tyre!==c.tyre){m.tyre=c.tyre;setC(m.bandM,TYRES[c.tyre].color);}
     const open=c.aero==="straight";
-    m.fFlap.rotation.z+=((open?-.28:0)-m.fFlap.rotation.z)*Math.min(1,dt*10);
-    m.rFlap.rotation.z+=((open?.55:0)-m.rFlap.rotation.z)*Math.min(1,dt*10);
+    m.fFlap.rotation.z+=((open?.14:0)-m.fFlap.rotation.z)*Math.min(1,dt*10);
+    m.rFlap.rotation.z+=((open?.45:0)-m.rFlap.rotation.z)*Math.min(1,dt*10);
     const flash=(c.harv>0&&c.thr>.9)||c.pit;setC(m.lightM,flash&&Math.floor(G.time*6)%2?0xff2a1a:0x330000);
     if(m.sw){m.sw.rotation.x=-c.steer*1.4;if(R3.frame%6===0)drawWheelScreen(m,c);
       const rpmF=clamp((Math.abs(c.vf)%10)/10,0,1);setC(m.sw.userData.leds.material,rpmF>.85?0xff3344:rpmF>.6?0xffd21f:0x22ff66);}

@@ -25,6 +25,7 @@ web/build.py   bundles src + data/tracks3.json -> web/dist/lights-out.html (sing
 web/tests/     headless Playwright checks: sim3.js (all-track race sim), mp.js (two-client online test, mockroom.js fakes the room API)
 data/          tracks.json (original outlines), tracks3.json (re-ordered + elevation, used by the game), elev.json, f1.geojson
 tools/elevation/  fetch_tel.py + align.py: pull F1 telemetry laps and align them to the outlines (rotation search + ICP)
+tools/carmodel/   build_car.py: turns the source car model into web/src/carmodel.js (decimate, split parts, quantize)
 unity/LightsOutUnity/  Unity project assets (Assets/LightsOut) and setup guide
 ```
 
@@ -41,5 +42,6 @@ node web/tests/sim3.js                   # race sim across every circuit
 
 - Circuit outlines: [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) (MIT).
 - Elevation: aligned from public F1 timing telemetry published by [TracingInsights](https://github.com/TracingInsights).
+- Car model: ["F1 2026 concept (polygon model)"](https://sketchfab.com/3d-models/f1-2026-concept-polygon-model-ea3bde709b1e4dc9b0ec8557d106ed42) by [Qvist_designs](https://sketchfab.com/Qvist_Designs), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). The web build uses a decimated copy split into paint, carbon and moving parts (`tools/carmodel/build_car.py`).
 
 This is an unofficial fan project, not affiliated with Formula One Licensing B.V. or the FIA.

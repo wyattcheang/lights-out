@@ -5,7 +5,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC, DIST = os.path.join(ROOT, 'src'), os.path.join(ROOT, 'dist')
 THREE = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
 read = lambda p: open(p, encoding='utf-8').read()
-js = ''.join(read(os.path.join(SRC, f)) + '\n' for f in ['core.js', 'sim.js', 'render2d.js', 'render3d.js', 'hud.js', 'net.js', 'main.js'])
+js = ''.join(read(os.path.join(SRC, f)) + '\n' for f in ['core.js', 'sim.js', 'render2d.js', 'carmodel.js', 'render3d.js', 'hud.js', 'net.js', 'main.js'])
 js = js.replace('__TRACKS__', read(os.path.join(ROOT, '..', 'data', 'tracks3.json')))
 page = read(os.path.join(SRC, 'head.html')) + read(os.path.join(SRC, 'body.html')) + f'\n<script src="{THREE}"></script>\n<script>\n(()=>{{\n' + js + '})();\n</script>\n'
 os.makedirs(DIST, exist_ok=True)
