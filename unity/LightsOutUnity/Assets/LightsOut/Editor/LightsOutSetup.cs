@@ -16,7 +16,7 @@ namespace LightsOut.EditorTools
         const string ScenePath = "Assets/LightsOut/LightsOut.unity";
         const string SettingsDir = "Assets/LightsOut/Settings";
         const string RendererPath = SettingsDir + "/LightsOut_Renderer.asset", PipelinePath = SettingsDir + "/LightsOut_URP.asset";
-        static readonly string[] CodeShaders = { "Universal Render Pipeline/Unlit", "Universal Render Pipeline/Particles/Unlit", "Skybox/Cubemap" };
+        static readonly string[] CodeShaders = { "Universal Render Pipeline/Unlit", "Universal Render Pipeline/Particles/Unlit", "Skybox/Cubemap", "Universal Render Pipeline/Complex Lit" };
 
         [MenuItem("Lights Out/Set Up Scene")]
         public static void SetUpScene()

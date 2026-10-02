@@ -22,8 +22,9 @@ namespace LightsOut
             var v = root.AddComponent<CarView>();
             // glossy clearcoat-like paint, satin carbon weave (tiled per metre of the model's box UVs),
             // dark machined rims and matte rubber
-            var mPaint = new Material(Visuals.Mat("paint", Color.white, null, .9f, .3f)); Visuals.SetColor(mPaint, paint);
-            var mAcc = new Material(Visuals.Mat("paint", Color.white, null, .9f, .3f)); Visuals.SetColor(mAcc, accent);
+            bool hasModel = CarModel.Load();
+            var mPaint = Coated("paint", Color.white, hasModel ? Livery(paint, accent) : null, .7f, .15f); if (!hasModel) Visuals.SetColor(mPaint, paint);
+            var mAcc = Coated("accent", accent, null, .7f, .15f);
             var mCarbon = Visuals.Mat("carbon", Color.white, Visuals.Carbon, .72f, .2f, false, new Vector2(30, 30));
             var mTyre = Visuals.Mat("tyre", new Color(.05f, .05f, .052f), null, .28f);
             var mRim = Visuals.Mat("rim", new Color(.13f, .135f, .145f), null, .82f, .9f);
@@ -101,6 +102,36 @@ namespace LightsOut
             return v;
         }
 
+        /// Car paint: URP's Complex Lit with a clear coat when it is available, plain glossy Lit otherwise.
+        static Material Coated(string name, Color color, Texture2D map, float smooth, float metal)
+        {
+            var sh = Shader.Find("Universal Render Pipeline/Complex Lit");
+            if (sh == null) { var f = new Material(Visuals.Mat("paint", Color.white, null, .9f, .3f)); Visuals.SetColor(f, color); if (map) f.SetTexture("_BaseMap", map); return f; }
+            var m = new Material(sh) { name = name };
+            m.SetColor("_BaseColor", color); if (map) m.SetTexture("_BaseMap", map); m.SetFloat("_Smoothness", smooth); m.SetFloat("_Metallic", metal);
+            m.SetFloat("_ClearCoat", 1); m.SetFloat("_ClearCoatMask", 1); m.SetFloat("_ClearCoatSmoothness", .95f); m.EnableKeyword("_CLEARCOAT");
+            return m;
+        }
+        // Two-tone livery in the paint's side projection (see CarModel): body colour, an accent lower edge, and an
+        // accent band with a light pinstripe that rises towards the tail.
+        static Texture2D Livery(Color paint, Color accent)
+        {
+            const int W = 1024, H = 256; var t = new Texture2D(W, H, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, anisoLevel = 8, filterMode = FilterMode.Trilinear };
+            Color pin = Color.Lerp(paint, Color.white, .8f), deep = paint * .8f; deep.a = 1; var px = new Color[W * H];
+            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
+                {
+                    float u = (x + .5f) / W, v = (y + .5f) / H;                                   // u = 0 at the tail, v = 0 at the floor
+                    Color c = Color.Lerp(deep, paint, Mathf.SmoothStep(.08f, .4f, v));
+                    float d = v - (.16f + Mathf.Max(0, .62f - u) * .95f);                           // distance above the band's lower edge
+                    float band = Mathf.Clamp01(d * 90f) * Mathf.Clamp01((.11f - d) * 90f), line = Mathf.Clamp01((d + .028f) * 90f) * Mathf.Clamp01((-.012f - d) * 90f);
+                    c = Color.Lerp(c, accent, band); c = Color.Lerp(c, pin, line);
+                    c = Color.Lerp(c, accent, Mathf.Clamp01((.085f - v) * 90f));
+                    px[y * W + x] = c;
+                }
+            t.SetPixels(px); t.Apply(true); return t;
+        }
+        static Mesh markMesh; static Material markMat;
+
         // Body from CarModel (near and far detail levels), active-aero flaps on their leading-edge pivots,
         // and the model's right-hand wheels, mirrored for the left side.
         static void BuildModel(Transform root, CarView v, Material paint, Material acc, Material carbon, Material tyre, Material rim)
@@ -117,6 +148,8 @@ namespace LightsOut
             lod.SetLODs(mid ? new[] { new LOD(.35f, new Renderer[] { near, ff, rf }), new LOD(.095f, new Renderer[] { mid }), new LOD(.004f, new Renderer[] { far }) }
                             : new[] { new LOD(.095f, new Renderer[] { near, ff, rf }), new LOD(.004f, new Renderer[] { far }) });
             if (bandMesh == null) bandMesh = CarModel.Ring(.27f, .305f);
+            if (markMesh == null) markMesh = CarModel.Marks(.225f, .255f, -.75f, .75f, 14);
+            if (markMat == null) markMat = Visuals.Mat("tyreMark", new Color(.62f, .62f, .6f), null, .2f);
             int fi = 0, ri = 2;
             foreach (var W in CarModel.Wheels)
                 foreach (int s in new[] { -1, 1 })
@@ -130,6 +163,12 @@ namespace LightsOut
                     {
                         var band = new GameObject("Band"); band.transform.SetParent(piv, false); band.transform.localPosition = new Vector3(k * (W.Width / 2 + .003f), 0, 0);
                         band.AddComponent<MeshFilter>().sharedMesh = bandMesh; var br = band.AddComponent<MeshRenderer>(); br.sharedMaterial = v.Band; br.shadowCastingMode = ShadowCastingMode.Off;
+                        // sidewall lettering, top and bottom, turning with the wheel
+                        foreach (float flip in new[] { 0f, 180f })
+                        {
+                            var mk = new GameObject("Mark"); mk.transform.SetParent(spin, false); mk.transform.localPosition = new Vector3(k * (W.Width / 2 + .004f), 0, 0); mk.transform.localRotation = Quaternion.Euler(flip, 0, 0);
+                            mk.AddComponent<MeshFilter>().sharedMesh = markMesh; var mr = mk.AddComponent<MeshRenderer>(); mr.sharedMaterial = markMat; mr.shadowCastingMode = ShadowCastingMode.Off;
+                        }
                     }
                     if (W.Front) { if (fi < 2) { v.FrontPivots[fi] = piv; v.Spins[fi] = spin; fi++; } }
                     else if (ri < 4) v.Spins[ri++] = spin;
