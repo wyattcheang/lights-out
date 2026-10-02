@@ -16,7 +16,7 @@ namespace LightsOut.EditorTools
         const string ScenePath = "Assets/LightsOut/LightsOut.unity";
         const string SettingsDir = "Assets/LightsOut/Settings";
         const string RendererPath = SettingsDir + "/LightsOut_Renderer.asset", PipelinePath = SettingsDir + "/LightsOut_URP.asset";
-        static readonly string[] CodeShaders = { "Universal Render Pipeline/Unlit", "Universal Render Pipeline/Particles/Unlit", "Skybox/Cubemap", "Universal Render Pipeline/Complex Lit" };
+        static readonly string[] CodeShaders = { "Universal Render Pipeline/Unlit", "Universal Render Pipeline/Particles/Unlit", "Skybox/Cubemap", "Universal Render Pipeline/Complex Lit", "Shader Graphs/Decal" };
 
         [MenuItem("Lights Out/Set Up Scene")]
         public static void SetUpScene()
@@ -71,11 +71,40 @@ namespace LightsOut.EditorTools
             if (!pipeline.supportsHDR) { pipeline.supportsHDR = true; EditorUtility.SetDirty(pipeline); }
             // the road is one mesh lit by the headlamp, underglow and up to three nearby cars' lamps
             if (pipeline.maxAdditionalLightsCount < 8) { pipeline.maxAdditionalLightsCount = 8; EditorUtility.SetDirty(pipeline); }
+            // sharp, soft-edged sun shadows near the camera, and a 64-bit HDR buffer so the night sky does not band
+            var ps = new SerializedObject(pipeline);
+            ps.FindProperty("m_ShadowDistance").floatValue = 260f; ps.FindProperty("m_ShadowCascadeCount").intValue = 4; ps.FindProperty("m_MainLightShadowmapResolution").intValue = 4096;
+            ps.FindProperty("m_SoftShadowsSupported").boolValue = true; ps.FindProperty("m_HDRColorBufferPrecision").intValue = 1;
+            ps.ApplyModifiedPropertiesWithoutUndo();
+            if (rendererData != null)
+            {
+                // contact shadows under the cars and in panel gaps
+                var ao = Feature<ScreenSpaceAmbientOcclusion>(rendererData, "Ambient Occlusion");
+                { var s = new SerializedObject(ao); s.FindProperty("m_Settings.Radius").floatValue = .3f; s.FindProperty("m_Settings.Intensity").floatValue = .7f; s.FindProperty("m_Settings.DirectLightingStrength").floatValue = .2f; s.FindProperty("m_Settings.Falloff").floatValue = 120f; s.FindProperty("m_Settings.Samples").enumValueIndex = 0; s.FindProperty("m_Settings.AOMethod").enumValueIndex = 1; s.ApplyModifiedPropertiesWithoutUndo(); EditorUtility.SetDirty(ao); }
+                Feature<DecalRendererFeature>(rendererData, "Decals");   // race numbers (CarView.Numbers)
+            }
             GraphicsSettings.defaultRenderPipeline = pipeline;
             int level = QualitySettings.GetQualityLevel();
             for (int i = 0; i < QualitySettings.names.Length; i++) { QualitySettings.SetQualityLevel(i, false); QualitySettings.renderPipeline = pipeline; }
             QualitySettings.SetQualityLevel(level, false);
         }
+
+        /// The renderer asset's feature of this type, added first when it is missing.
+        static T Feature<T>(UniversalRendererData data, string name) where T : ScriptableRendererFeature
+        {
+            var have = data.rendererFeatures.Find(f => f is T) as T; if (have != null) return have;
+            var feature = ScriptableObject.CreateInstance<T>(); feature.name = name;
+            AssetDatabase.AddObjectToAsset(feature, data);
+            string guid; long id; AssetDatabase.TryGetGUIDAndLocalFileIdentifier(feature, out guid, out id);
+            var so = new SerializedObject(data); SerializedProperty list = so.FindProperty("m_RendererFeatures"), map = so.FindProperty("m_RendererFeatureMap");
+            list.arraySize++; list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = feature;
+            map.arraySize++; map.GetArrayElementAtIndex(map.arraySize - 1).longValue = id;
+            so.ApplyModifiedPropertiesWithoutUndo(); EditorUtility.SetDirty(data);
+            return feature;
+        }
+
+        /// Batch entry point: refreshes the pipeline assets without rebuilding the scene.
+        public static void UpgradeRendering() { SetUpRenderPipeline(); IncludeCodeShaders(); AssetDatabase.SaveAssets(); }
 
         // These shaders are only referenced from code, so a player build would strip them.
         static void IncludeCodeShaders()

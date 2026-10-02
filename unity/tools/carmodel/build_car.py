@@ -60,7 +60,7 @@ def simplify(V, F, tgt):
 
 
 def segment(V, F):
-    """0 paint, 1 accent (endplates), 2 carbon, 3 front flaps, 4 rear flap. The halo stays in paint."""
+    """0 paint, 1 accent (endplates), 2 carbon, 3 front flaps, 4 rear flap, 5 halo (Unity only; the web build keeps it in paint)."""
     C = V[F].mean(1); x, y, z = C[:, 0], C[:, 1], C[:, 2]; az = np.abs(z)
     lab = np.zeros(len(F), int)
     lab[y < 0.075] = 2                                                   # floor and plank
@@ -72,6 +72,10 @@ def segment(V, F):
     lab[(x < -2.33) & (y > 0.72) & (az < 0.46)] = 4                      # rear wing upper flap
     lab[(x > 1.1) & (x < 2.1) & (az > 0.25) & (y > 0.15) & (y < 0.55)] = 2   # front suspension
     lab[(x < -1.3) & (x > -2.2) & (az > 0.42) & (y > 0.12) & (y < 0.6)] = 2  # rear suspension
+    if os.environ.get('CAR_JSON'):
+        # halo: the hoop over the cockpit and its centre pillar, above the cockpit rim and the nose top
+        rim = np.where(x < 0.1, 0.735, np.where(x < 0.6, 0.70, 0.68))
+        lab[(x > -0.02) & (x < 0.82) & (az < 0.4) & (y > rim)] = 5
     return lab
 
 
@@ -89,9 +93,11 @@ def pack(V, F, groups=None, origin=(0, 0, 0)):
 def body_level(V, F, tgt, flaps):
     Fs = simplify(V, F, tgt); lab = segment(V, Fs)
     if not flaps: lab[lab == 3] = 2; lab[lab == 4] = 1          # far level keeps the flaps fixed
-    o = np.argsort(lab, kind='stable'); Fs, lab = Fs[o], lab[o]
+    halo = lab == 5
+    key = np.where(halo, 2.5, lab)                              # the halo sorts after carbon, as the body's fourth group
+    o = np.argsort(key, kind='stable'); Fs, lab = Fs[o], lab[o]
     out = {}
-    body = lab < 3; cnt = np.bincount(lab[body], minlength=3)
+    body = (lab < 3) | (lab == 5); cnt = [int((lab == k).sum()) for k in (0, 1, 2)] + ([int((lab == 5).sum())] if (lab == 5).any() else [])
     out['body'] = pack(V, Fs[body], groups=[int(c) * 3 for c in cnt])
     if flaps:
         for k, name in ((3, 'fFlap'), (4, 'rFlap')):

@@ -1,7 +1,7 @@
 // Car body: "F1 2026 concept (polygon model)" by Qvist_designs, CC BY 4.0,
 // https://sketchfab.com/3d-models/f1-2026-concept-polygon-model-ea3bde709b1e4dc9b0ec8557d106ed42
 // Decimated and split by tools/carmodel/build_car.py into Resources/carmodel.json: a 200k-triangle near body
-// with separate active-aero flaps, 24k and 5k triangle mid and far bodies, and 9k-triangle wheels.
+// with the halo as its own material group and separate active-aero flaps, 24k and 5k triangle mid and far bodies, and 9k-triangle wheels.
 // Model space is x forward, y up, z lateral, metres, front axle at x = 1.55.
 using System;
 using System.Collections.Generic;
@@ -88,8 +88,9 @@ namespace LightsOut
                 oU.Add(ax >= ay && ax >= az ? new Vector2(p.z, p.y) : ay >= az ? new Vector2(p.x, p.z) : new Vector2(p.x, p.y));
             }
             var mesh = new Mesh { name = name, indexFormat = oP.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
-            // the first material group is the paint: project it from the side instead (u along the car, v up and outward) for the livery
-            if (d.g != null && d.g.Length > 1) for (int k = 0; k < d.g[0]; k++) { var p = oP[oI[k]]; oU[oI[k]] = new Vector2((p.z + 3f) / LiveryLength, (p.y + .35f * Mathf.Abs(p.x)) / LiveryHeight); }
+            // the first material group is the paint: project it straight from the side instead (u along the car, v up),
+            // so livery lines stay straight whatever the bodywork does underneath
+            if (d.g != null && d.g.Length > 1) for (int k = 0; k < d.g[0]; k++) { var p = oP[oI[k]]; oU[oI[k]] = new Vector2((p.z + 3f) / LiveryLength, p.y / LiveryHeight); }
             mesh.SetVertices(oP); mesh.SetNormals(oN); mesh.SetUVs(0, oU);
             if (d.g != null && d.g.Length > 0)
             {
@@ -103,7 +104,7 @@ namespace LightsOut
 
         static int Index(byte[] b, int k, bool wide) { return wide ? (int)BitConverter.ToUInt32(b, k * 4) : BitConverter.ToUInt16(b, k * 2); }
 
-        public const float LiveryLength = 6.4f, LiveryHeight = 1.5f;
+        public const float LiveryLength = 6.4f, LiveryHeight = 1.2f;
 
         /// Short blocks around part of a ring, in the wheel plane and facing both ways: generic sidewall lettering.
         public static Mesh Marks(float r0, float r1, float from, float to, int count)

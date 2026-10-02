@@ -59,7 +59,13 @@ namespace LightsOut
             race.Setup(track, mode, field_, tyre);
             foreach (var c in race.Cars) MakeView(c);
         }
-        void MakeView(Car c) { views[c] = CarView.Create(c.Code, Visuals.Hex(c.IsPlayer ? "#ffd21f" : c.Color), Visuals.Hex(c.IsPlayer ? "#16181c" : c.Accent), c.IsPlayer); }
+        static readonly int[] RivalNumbers = { 5, 11, 23, 31, 44, 63, 77, 81, 16 };
+        void MakeView(Car c)
+        {
+            int rival = System.Array.FindIndex(Config.Rivals, r => r[0] == c.Code);
+            int number = c.IsPlayer ? 1 : rival >= 0 ? RivalNumbers[rival] : 20 + race.Cars.IndexOf(c);
+            views[c] = CarView.Create(c.Code, Visuals.Hex(c.IsPlayer ? "#ffd21f" : c.Color), Visuals.Hex(c.IsPlayer ? "#16181c" : c.Accent), c.IsPlayer, number);
+        }
         void StartAttract() { if (track == null || track.Src != tracks[trackIdx]) LoadTrack(trackIdx); NewRace(SessionMode.Attract, 8, Compound.Medium); }
         void StartSingle()
         {

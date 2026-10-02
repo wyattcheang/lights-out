@@ -82,7 +82,7 @@ namespace LightsOut
         static Color Speckle(Color a, float amt, System.Random r) { float k = 1f + ((float)r.NextDouble() - .5f) * amt; return new Color(a.r * k, a.g * k, a.b * k, 1); }
 
         static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff, windows, facade, astro;
-        public static Texture2D Asphalt { get { if (!asphalt) { var r = new System.Random(1); var b = Hex("#55585e"); asphalt = Tex(256, 256, (x, y) => Speckle(b, .35f, r)); } return asphalt; } }
+        public static Texture2D Asphalt { get { if (!asphalt) { var r = new System.Random(1); var b = Hex("#55585e"); asphalt = Tex(256, 256, (x, y) => Speckle(b, .2f, r)); } return asphalt; } }
         // groomed grass: mowing stripes, soft large-scale patches and only a light speckle
         public static Texture2D Grass
         {
@@ -123,6 +123,31 @@ namespace LightsOut
             }
         }
         static Texture2D carbonTex;
+        /// A race number in the UI's condensed bold face: the ink colour everywhere, with the digits in the alpha channel.
+        public static Texture2D NumberTexture(int number, Color ink)
+        {
+            const int W = 256, H = 192, Size = 150; string s = number.ToString(); var font = UiKit.Head;
+            font.RequestCharactersInTexture(s, Size, FontStyle.Bold);
+            float width = 0; CharacterInfo ci; foreach (char ch in s) if (font.GetCharacterInfo(ch, out ci, Size, FontStyle.Bold)) width += ci.advance;
+            var rt = RenderTexture.GetTemporary(W, H, 0, RenderTextureFormat.ARGB32); var prev = RenderTexture.active; RenderTexture.active = rt;
+            GL.Clear(true, true, new Color(ink.r, ink.g, ink.b, 0));
+            GL.PushMatrix(); GL.LoadPixelMatrix(0, W, 0, H); font.material.SetPass(0); GL.Begin(GL.QUADS); GL.Color(ink);
+            float x = (W - width) / 2, y = H / 2 - Size * .36f;
+            foreach (char ch in s)
+            {
+                if (!font.GetCharacterInfo(ch, out ci, Size, FontStyle.Bold)) continue;
+                GL.TexCoord(ci.uvBottomLeft); GL.Vertex3(x + ci.minX, y + ci.minY, 0); GL.TexCoord(ci.uvTopLeft); GL.Vertex3(x + ci.minX, y + ci.maxY, 0);
+                GL.TexCoord(ci.uvTopRight); GL.Vertex3(x + ci.maxX, y + ci.maxY, 0); GL.TexCoord(ci.uvBottomRight); GL.Vertex3(x + ci.maxX, y + ci.minY, 0);
+                x += ci.advance;
+            }
+            GL.End(); GL.PopMatrix();
+            var t = new Texture2D(W, H, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, anisoLevel = 8, filterMode = FilterMode.Trilinear };
+            t.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            // the text shader blends alpha with itself; take the square root back and keep the colour solid
+            var px = t.GetPixels(); for (int i = 0; i < px.Length; i++) px[i] = new Color(ink.r, ink.g, ink.b, Mathf.Sqrt(px[i].a));
+            t.SetPixels(px); t.Apply(true); RenderTexture.active = prev; RenderTexture.ReleaseTemporary(rt);
+            return t;
+        }
         public static Texture2D Puff { get { if (!puff) puff = Tex(32, 32, (x, y) => { float d = Mathf.Sqrt((x - 15.5f) * (x - 15.5f) + (y - 15.5f) * (y - 15.5f)) / 15.5f; return new Color(1, 1, 1, Mathf.Clamp01(1 - d) * Mathf.Clamp01(1 - d)); }, false); return puff; } }
         public static Texture2D Check { get { if (!check) check = Tex(64, 8, (x, y) => ((x / 4 + y / 4) % 2 == 0) ? Hex("#f2f0ea") : Hex("#111111")); return check; } }
         public static Texture2D Fence

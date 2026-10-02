@@ -22,6 +22,7 @@ namespace LightsOut
 
         static bool applied; static Material daySky, nightSky; static Cubemap nightCube; static Light headlamp, underglow; static readonly Light[] nearLamps = new Light[3];
         static Bloom bloom; static ColorAdjustments grade; static Vignette vignette; static ChromaticAberration aberration; static FilmGrain grain;
+        static WhiteBalance balance; static ShadowsMidtonesHighlights tones; static MotionBlur motion;
 
         public static void Apply(bool nightRace, Light sun, Camera cam)
         {
@@ -44,10 +45,17 @@ namespace LightsOut
             cam.clearFlags = CameraClearFlags.Skybox; cam.backgroundColor = Base; cam.allowHDR = true;
             if (!night) DynamicGI.UpdateEnvironment();
 
-            bloom.threshold.Override(night ? .9f : 1.1f); bloom.intensity.Override(night ? 1.2f : .5f); bloom.scatter.Override(.7f);
-            grade.contrast.Override(15f); grade.saturation.Override(night ? 10f : 4f); grade.postExposure.Override(night ? .3f : 0f);
-            grade.colorFilter.Override(night ? Color.white : new Color(.96f, .98f, 1f));
-            vignette.intensity.Override(night ? .25f : .16f); aberration.intensity.Override(night ? .08f : .04f); grain.intensity.Override(night ? .22f : .1f);
+            // Filmic grade: ACES curve, a warm key and cool shadows by day, cooler and punchier at night, with a soft
+            // highlight bloom, light vignette and grain. Motion blur follows the camera only, so the HUD-side car stays sharp.
+            bloom.threshold.Override(night ? .9f : 1.05f); bloom.intensity.Override(night ? 1.1f : .35f); bloom.scatter.Override(night ? .72f : .6f);
+            grade.contrast.Override(night ? 14f : 8f); grade.saturation.Override(night ? 8f : 6f); grade.postExposure.Override(night ? .3f : .3f);
+            grade.colorFilter.Override(Color.white);
+            balance.temperature.Override(night ? -8f : 3f); balance.tint.Override(night ? 4f : 0f);
+            tones.shadows.Override(night ? new Vector4(.94f, .98f, 1.1f, 0f) : new Vector4(.95f, 1f, 1.07f, -.02f));
+            tones.highlights.Override(night ? new Vector4(1f, 1f, 1f, 0f) : new Vector4(1.03f, 1.01f, .97f, 0f));
+            vignette.intensity.Override(night ? .26f : .2f); vignette.smoothness.Override(.45f);
+            aberration.intensity.Override(night ? .05f : .025f); grain.intensity.Override(night ? .16f : .08f);
+            motion.intensity.Override(.3f);
         }
 
         // Daylight: a slightly thicker, less saturated atmosphere with a pale haze at the horizon.
@@ -91,14 +99,18 @@ namespace LightsOut
 
         static void EnsureVolume(Camera cam)
         {
-            cam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
+            var data = cam.GetUniversalAdditionalCameraData(); data.renderPostProcessing = true;
+            // MSAA handles geometry edges; SMAA on top settles the fences, crowd and other alpha-tested detail
+            data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing; data.antialiasingQuality = AntialiasingQuality.High; data.dithering = true;
             if (bloom != null) return;
             var go = new GameObject("Look Volume"); Object.DontDestroyOnLoad(go);
             var vol = go.AddComponent<Volume>(); vol.isGlobal = true; vol.priority = 10;
             var p = ScriptableObject.CreateInstance<VolumeProfile>(); vol.sharedProfile = p;
             p.Add<Tonemapping>(true).mode.Override(TonemappingMode.ACES);
-            bloom = p.Add<Bloom>(true); grade = p.Add<ColorAdjustments>(true); vignette = p.Add<Vignette>(true); aberration = p.Add<ChromaticAberration>(true);
+            bloom = p.Add<Bloom>(true); bloom.highQualityFiltering.Override(true); grade = p.Add<ColorAdjustments>(true); vignette = p.Add<Vignette>(true); aberration = p.Add<ChromaticAberration>(true);
             grain = p.Add<FilmGrain>(true); grain.type.Override(FilmGrainLookup.Thin1);
+            balance = p.Add<WhiteBalance>(true); tones = p.Add<ShadowsMidtonesHighlights>(true);
+            motion = p.Add<MotionBlur>(true); motion.mode.Override(MotionBlurMode.CameraOnly); motion.quality.Override(MotionBlurQuality.Medium); motion.clamp.Override(.03f);
         }
 
         // Night sky: deep indigo overhead with a smooth violet city glow along the horizon. The same cubemap is the
