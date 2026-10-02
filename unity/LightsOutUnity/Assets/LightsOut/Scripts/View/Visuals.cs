@@ -123,10 +123,11 @@ namespace LightsOut
             }
         }
         static Texture2D carbonTex;
-        /// A race number in the UI's condensed bold face: the ink colour everywhere, with the digits in the alpha channel.
+        /// A race number in a condensed bold face: the ink colour everywhere, with the digits in the alpha channel.
+        static Font numberFont;
         public static Texture2D NumberTexture(int number, Color ink)
         {
-            const int W = 256, H = 192, Size = 150; string s = number.ToString(); var font = UiKit.Head;
+            const int W = 256, H = 192, Size = 150; string s = number.ToString(); var font = numberFont ? numberFont : (numberFont = Font.CreateDynamicFontFromOSFont(new[] { "Avenir Next Condensed", "Bahnschrift", "Arial Narrow", "Arial" }, 18));
             font.RequestCharactersInTexture(s, Size, FontStyle.Bold);
             float width = 0; CharacterInfo ci; foreach (char ch in s) if (font.GetCharacterInfo(ch, out ci, Size, FontStyle.Bold)) width += ci.advance;
             var rt = RenderTexture.GetTemporary(W, H, 0, RenderTextureFormat.ARGB32); var prev = RenderTexture.active; RenderTexture.active = rt;

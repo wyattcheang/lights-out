@@ -147,7 +147,7 @@ namespace LightsOut
         {
             var sh = Shader.Find("Shader Graphs/Decal"); if (sh == null) return;
             foreach (int s in new[] { -1, 1 }) Decal(root, new Vector3(.66f * s, .775f, -2.3f), Quaternion.LookRotation(Vector3.left * s, Vector3.up), new Vector3(.36f, .25f, .1f), NumberMat(sh, number, plateInk));
-            Decal(root, new Vector3(0, .8f, 1.84f), Quaternion.LookRotation(Vector3.down, Vector3.back), new Vector3(.28f, .21f, .42f), NumberMat(sh, number, noseInk));
+            Decal(root, new Vector3(0, .8f, 1.84f), Quaternion.LookRotation(Vector3.down, Vector3.back), new Vector3(.38f, .285f, .42f), NumberMat(sh, number, noseInk));
         }
         static void Decal(Transform root, Vector3 at, Quaternion rot, Vector3 size, Material m)
         {

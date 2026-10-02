@@ -38,7 +38,7 @@ namespace LightsOut
             RenderSettings.fogColor = night ? new Color(.1f, .05f, .2f) : new Color(.76f, .83f, .9f);
             RenderSettings.skybox = night ? NightSky() : daySky;
             RenderSettings.ambientMode = night ? AmbientMode.Trilight : AmbientMode.Skybox; RenderSettings.ambientIntensity = 1f;
-            RenderSettings.ambientSkyColor = new Color(.12f, .16f, .36f); RenderSettings.ambientEquatorColor = new Color(.26f, .1f, .3f); RenderSettings.ambientGroundColor = new Color(.02f, .02f, .045f);
+            RenderSettings.ambientSkyColor = new Color(.2f, .25f, .5f); RenderSettings.ambientEquatorColor = new Color(.34f, .17f, .4f); RenderSettings.ambientGroundColor = new Color(.02f, .02f, .045f);
             RenderSettings.defaultReflectionMode = night ? DefaultReflectionMode.Custom : DefaultReflectionMode.Skybox;
             if (night) RenderSettings.customReflectionTexture = NightCube();
             RenderSettings.reflectionIntensity = night ? 1f : .8f;
