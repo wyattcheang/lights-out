@@ -81,7 +81,7 @@ namespace LightsOut
         }
         static Color Speckle(Color a, float amt, System.Random r) { float k = 1f + ((float)r.NextDouble() - .5f) * amt; return new Color(a.r * k, a.g * k, a.b * k, 1); }
 
-        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff, windows;
+        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff, windows, facade;
         public static Texture2D Asphalt { get { if (!asphalt) { var r = new System.Random(1); var b = Hex("#55585e"); asphalt = Tex(256, 256, (x, y) => Speckle(b, .35f, r)); } return asphalt; } }
         public static Texture2D Grass { get { if (!grass) { var r = new System.Random(2); var b = Hex("#3c7136"); grass = Tex(256, 256, (x, y) => { var c = Speckle(b, .3f, r); return x < 128 ? c * 1.06f : c; }); } return grass; } }
         public static Texture2D City { get { if (!city) { var r = new System.Random(7); var b = Hex("#6c6f74"); city = Tex(256, 256, (x, y) => (x % 128 < 2 || y % 128 < 2) ? b * .8f : Speckle(b, .2f, r)); } return city; } }
@@ -129,6 +129,8 @@ namespace LightsOut
                 return garage;
             }
         }
+        // modern facade: pale panels with horizontal bands of dark glass and thin mullions
+        public static Texture2D Facade { get { if (!facade) facade = Tex(64, 64, (x, y) => (y % 16 < 9 && x % 16 > 0) ? Hex("#2a3948") : Hex("#dde2e6")); return facade; } }
         // building windows for the emission map: mostly dark, a few lit in warm white, cyan or magenta
         public static Texture2D Windows
         {

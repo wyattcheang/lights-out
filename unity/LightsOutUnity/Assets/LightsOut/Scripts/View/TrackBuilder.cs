@@ -44,6 +44,7 @@ namespace LightsOut
             BuildStart(r);
             BuildBoardsAndPosts(r);
             BuildStands(r);
+            BuildLightRig(r);
             BuildScenery(r);
             BuildMap();
         }
@@ -220,11 +221,13 @@ namespace LightsOut
         void BuildStands(Transform r)
         {
             float cc = Look.Pick(1f, .45f); var crowd = Visuals.Mat("crowd", new Color(cc, cc, cc), Visuals.Crowd, .1f, 0, false, null, Look.Hdr(Color.white, .6f)); var roof = RoofM();
-            var edge = Visuals.Neon("standEdge", Look.Cyan, 2.2f);
+            var edge = Visuals.Neon("standEdge", Look.Cyan, 2.2f); var under = Visuals.Unlit("roofUnder", Look.Pick(new Color(.2f, .21f, .24f), new Color(.03f, .035f, .055f)));
             Action<byte[], int> stand = (mask, sg) =>
             {
                 Strip(r, "Stand", sg * (T.WallD + 3), .8f, sg * (T.WallD + 16), 9, mask, crowd, 10, 1);
-                Strip(r, "StandRoof", sg * (T.WallD + 3), 12.5f, sg * (T.WallD + 12), 13f, mask, roof, 10, 1, true);   // two-sided: the roof is mostly seen from below
+                Strip(r, "StandRoof", sg * (T.WallD + 3), 12.5f, sg * (T.WallD + 12), 13f, mask, roof, 10, 1);
+                // the roof is mostly seen from below, where the lit top face is culled, so add a flat dark underside
+                Strip(r, "StandRoofUnder", sg * (T.WallD + 3), 12.47f, sg * (T.WallD + 12), 12.97f, mask, under, 10, 1, true);
                 // light strips along the roof edge and the front of the first row
                 Strip(r, "StandLight", sg * (T.WallD + 3), 12.25f, sg * (T.WallD + 3), 12.5f, mask, edge, 10, 1, true);
                 Strip(r, "StandLight", sg * (T.WallD + 3), .55f, sg * (T.WallD + 3), .8f, mask, edge, 10, 1, true);
@@ -239,6 +242,45 @@ namespace LightsOut
             int n = 0; foreach (var a in T.Apexes) { if (n >= 3) break; int sg = T.KC[a] > 0 ? -1 : 1; var m = mk(a - 30, a + 5, sg); if (m != null) { stand(m, sg); n++; } }
         }
 
+        // Trackside light pylons on alternating sides, and a few neon arches over the track at sector boundaries.
+        void BuildLightRig(Transform r)
+        {
+            var holder = new GameObject("LightRig"); holder.transform.SetParent(r, false);
+            var pole = Visuals.Mat("steel", Visuals.Hex("#2b2f36"), null, .4f, .6f);
+            var cyan = Visuals.Neon("neonCyan", Look.Cyan, 3f); var magenta = Visuals.Neon("neonMagenta", Look.Magenta, 3f);
+            int stepI = Math.Max(8, Mathf.RoundToInt(140f / Config.Step)), k = 0;
+            for (int i = stepI / 2; i < T.N; i += stepI, k++)
+            {
+                int side = k % 2 == 0 ? 1 : -1; float o = side * (T.WallD + 1.4f), x = T.X[i] + T.NX[i] * o, y = T.Y[i] + T.NY[i] * o;
+                if (T.Nearest(x, y) < T.WallD) continue;
+                var g = new GameObject("Pylon"); g.transform.SetParent(holder.transform, false); g.transform.position = Visuals.World(x, y, T.E[i]); g.transform.rotation = Visuals.Yaw(T.Heading(i));
+                Box(g.transform, new Vector3(0, 4.5f, 0), new Vector3(.22f, 9f, .22f), pole);
+                Box(g.transform, new Vector3(-side * 1.1f, 9f, 0), new Vector3(2.6f, .16f, .3f), pole);
+                Box(g.transform, new Vector3(-side * 1.1f, 8.9f, 0), new Vector3(2.4f, .05f, .22f), k % 4 < 2 ? cyan : magenta);
+                Box(g.transform, new Vector3(0, 4.5f, -.12f), new Vector3(.05f, 8.6f, .02f), k % 4 < 2 ? cyan : magenta);
+            }
+            for (int s = 1; s < T.MS; s += 3)
+            {
+                int i = (s * T.N / T.MS) % T.N; float half = T.WallD + 1.4f;
+                var g = new GameObject("Arch"); g.transform.SetParent(holder.transform, false); g.transform.position = Visuals.World(T.X[i], T.Y[i], T.E[i]); g.transform.rotation = Visuals.Yaw(T.Heading(i));
+                foreach (float ax in new[] { -half, half }) { Box(g.transform, new Vector3(ax, 4.4f, 0), new Vector3(.35f, 8.8f, .35f), pole, true); Box(g.transform, new Vector3(ax, 4.4f, -.19f), new Vector3(.06f, 8.4f, .02f), magenta); }
+                Box(g.transform, new Vector3(0, 8.6f, 0), new Vector3(half * 2 + .35f, .5f, .5f), pole, true);
+                Box(g.transform, new Vector3(0, 8.3f, -.2f), new Vector3(half * 2, .07f, .03f), cyan); Box(g.transform, new Vector3(0, 8.3f, .2f), new Vector3(half * 2, .07f, .03f), cyan);
+                // LED board facing oncoming cars
+                Box(g.transform, new Vector3(0, 10f, 0), new Vector3(Mathf.Min(14f, half * 1.4f), 2.2f, .3f), pole, true);
+                var led = Box(g.transform, new Vector3(0, 10f, -.17f), new Vector3(Mathf.Min(13.6f, half * 1.4f - .4f), 1.9f, .02f), Visuals.Mat("led", Color.white, Visuals.Barrier, .6f, 0, false, new Vector2(1, .5f), Look.Hdr(Color.white, Look.Pick(4f, 1.8f))));
+                led.transform.localRotation = Quaternion.Euler(0, 0, 90);
+            }
+        }
+
+        // Clean pale buildings with glass bands by day; the same blocks go dark with lit windows at night.
+        static Material[] BuildingMats()
+        {
+            string[] tint = { "#ffffff", "#e4e9ef", "#cdd3da", "#f2f1ec" }; var mats = new Material[4]; float n = Look.Pick(1f, .1f);
+            for (int q = 0; q < 4; q++) mats[q] = Visuals.Mat("bld" + q, Visuals.Hex(tint[q]) * new Color(n, n, n * Look.Pick(1f, 1.3f)), Visuals.Facade, .7f, .3f, false, new Vector2(2 + q, 3 + q * 2), Look.Hdr(Color.white, Look.Pick(.6f, 1.4f)), Visuals.Windows);
+            return mats;
+        }
+
         void BuildScenery(Transform r)
         {
             var rnd = new System.Random(T.Id.GetHashCode());
@@ -247,8 +289,7 @@ namespace LightsOut
             var holder = new GameObject("Scenery"); holder.transform.SetParent(r, false);
             if (T.StreetCircuit)
             {
-                string[] day = { "#6f767e", "#857f75", "#5c636b", "#8f949a" }, nightC = { "#0f1118", "#14121a", "#0b0d13", "#161820" }; var mats = new Material[4];
-                for (int q = 0; q < 4; q++) mats[q] = Visuals.Mat("bld" + q, Visuals.Hex(Look.Night ? nightC[q] : day[q]), null, .65f, .3f, false, new Vector2(2 + q, 3 + q * 2), Look.Hdr(Color.white, 1.4f), Visuals.Windows);
+                var mats = BuildingMats();
                 int k = 0;
                 for (int a = 0; a < 7000 && k < 420; a++)
                 {
@@ -260,19 +301,29 @@ namespace LightsOut
             }
             else
             {
-                float lk = Look.Pick(.85f, .3f); Color lt = new Color(lk, lk * Look.Pick(.92f, 1f), lk * 1.25f);
+                float lk = Look.Pick(1.3f, .3f); Color lt = new Color(lk, lk * Look.Pick(.92f, 1f), lk * 1.25f);
                 var leaf = new[] { Visuals.Mat("leaf0", Visuals.Hex("#2f5a2a") * lt), Visuals.Mat("leaf1", Visuals.Hex("#3d6b33") * lt), Visuals.Mat("leaf2", Visuals.Hex("#4a7a3a") * lt) };
                 var trunk = Visuals.Mat("trunk", Visuals.Hex("#4a3826") * lt);
                 int k = 0;
-                for (int a = 0; a < 9000 && k < 900; a++)
+                for (int a = 0; a < 9000 && k < 520; a++)
                 {
                     float x = R(x0, x1), y = R(y0, y1), dist = T.Nearest(x, y); if (dist < T.WallD + 6 || dist > 420) continue;
                     float s = R(.7f, 1.5f), gy = TerrainAt(x, y);
+                    // slim columnar trees read as planted and maintained, not wild
                     var tree = new GameObject("Tree"); tree.transform.SetParent(holder.transform, false); tree.transform.position = Visuals.World(x, y, gy); tree.isStatic = true;
-                    var t1 = Box(tree.transform, new Vector3(0, 1.2f * s, 0), new Vector3(.5f * s, 2.4f * s, .5f * s), trunk);
-                    var crown = new GameObject("Crown"); crown.transform.SetParent(tree.transform, false); crown.transform.localPosition = new Vector3(0, 5f * s, 0); crown.transform.localScale = new Vector3(5f * s, 5.5f * s, 5f * s);
+                    var t1 = Box(tree.transform, new Vector3(0, .8f * s, 0), new Vector3(.35f * s, 1.6f * s, .35f * s), trunk);
+                    var crown = new GameObject("Crown"); crown.transform.SetParent(tree.transform, false); crown.transform.localPosition = new Vector3(0, 5.2f * s, 0); crown.transform.localScale = new Vector3(2.4f * s, 8.4f * s, 2.4f * s);
                     crown.AddComponent<MeshFilter>().sharedMesh = Visuals.Sphere; crown.AddComponent<MeshRenderer>().sharedMaterial = leaf[k % 3];
                     k++;
+                }
+                // a scattering of low modern buildings beyond the fences: paddock, hospitality and media blocks
+                var mats = BuildingMats(); int nb = 0;
+                for (int a = 0; a < 4000 && nb < 70; a++)
+                {
+                    float w = R(14, 38), d = R(12, 30), h = R(6, 24), x = R(x0, x1), y = R(y0, y1), dist = T.Nearest(x, y);
+                    if (dist < T.WallD + 30 + Math.Max(w, d) * .72f || dist > 300) continue;
+                    var b = Box(holder.transform, Visuals.World(x, y, TerrainAt(x, y) + h / 2 - 1.5f), new Vector3(w, h, d), mats[nb % mats.Length], true);
+                    b.transform.rotation = Quaternion.Euler(0, R(0, 180), 0); b.isStatic = true; nb++;
                 }
             }
             StaticBatchingUtility.Combine(holder);

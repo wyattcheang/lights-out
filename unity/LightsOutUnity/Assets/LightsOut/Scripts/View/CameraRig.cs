@@ -24,8 +24,8 @@ namespace LightsOut
                 pitchLag = Mathf.Lerp(pitchLag, c.Brk * 1.0f - c.Thr * .35f, dt * 5);
                 float grade = Mathf.Atan(t.GR[c.Idx] * Mathf.Cos(c.H - t.Heading(c.Idx))) * Mathf.Rad2Deg;
                 float shake = (Random.value - .5f) * .006f * Mathf.Min(1, v / 80) * (c.Surf > 0 ? 3 : 1);
-                Cam.transform.position = Visuals.World(c.X, c.Y, y + 1.06f + bounce + shake) - fwd * .1f;
-                Cam.transform.rotation = Visuals.Yaw(c.H) * Quaternion.Euler(4.3f - grade * .9f + pitchLag, 0, -roll);
+                Cam.transform.position = Visuals.World(c.X, c.Y, y + 1.1f + bounce + shake) - fwd * .1f;
+                Cam.transform.rotation = Visuals.Yaw(c.H) * Quaternion.Euler(2.6f - grade * .9f + pitchLag, 0, -roll);
                 Cam.fieldOfView = 74 + Mathf.Min(12, v * .13f);
             }
             else if (mode == CamMode.Chase)

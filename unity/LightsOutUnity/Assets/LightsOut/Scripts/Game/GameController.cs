@@ -118,6 +118,7 @@ namespace LightsOut
             var focus = race.Player ?? race.Cars.Where(c => !c.Retired).OrderByDescending(c => c.PF).FirstOrDefault() ?? race.Cars[0];
             foreach (var kv in views) kv.Value.Sync(kv.Key, track, Time.deltaTime, kv.Key == focus && rig.Mode == CamMode.Cockpit && race.Mode != SessionMode.Attract, race.Time);
             rig.Follow(focus, track, Time.deltaTime, race.Mode == SessionMode.Attract);
+            CarView fv; Look.FollowCar(views.TryGetValue(focus, out fv) && fv ? fv.transform : null, focus.IsPlayer);
             sun.transform.position = rig.Cam.transform.position;
             UpdateEffects(); UpdateTrackside();
         }

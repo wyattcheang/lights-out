@@ -20,13 +20,13 @@ namespace LightsOut
         /// HDR colour for emissive surfaces, already scaled for the time of day.
         public static Color Hdr(Color c, float intensity) { float k = intensity * Glow; return new Color(c.r * k, c.g * k, c.b * k, 1); }
 
-        static bool applied; static Material daySky, nightSky; static Cubemap nightCube;
+        static bool applied; static Material daySky, nightSky; static Cubemap nightCube; static Light headlamp, underglow;
         static Bloom bloom; static ColorAdjustments grade; static Vignette vignette; static ChromaticAberration aberration; static FilmGrain grain;
 
         public static void Apply(bool nightRace, Light sun, Camera cam)
         {
             bool night = nightRace || CyberNight;
-            if (!applied) daySky = RenderSettings.skybox;
+            if (!applied) daySky = DaySky(RenderSettings.skybox);
             if (!applied || night != Night) Visuals.ResetMaterials();
             applied = true; Night = night; Glow = night ? 1f : .35f;
             EnsureVolume(cam);
@@ -48,6 +48,30 @@ namespace LightsOut
             grade.contrast.Override(15f); grade.saturation.Override(night ? 10f : 4f); grade.postExposure.Override(night ? .3f : 0f);
             grade.colorFilter.Override(night ? Color.white : new Color(.96f, .98f, 1f));
             vignette.intensity.Override(night ? .25f : .16f); aberration.intensity.Override(night ? .08f : .04f); grain.intensity.Override(night ? .22f : .1f);
+        }
+
+        // Daylight: a slightly thicker, less saturated atmosphere with a pale haze at the horizon.
+        static Material DaySky(Material source)
+        {
+            if (source == null || !source.HasProperty("_AtmosphereThickness")) return source;
+            var m = new Material(source);
+            m.SetFloat("_AtmosphereThickness", 1.25f); m.SetFloat("_Exposure", 1.25f); m.SetColor("_SkyTint", new Color(.56f, .57f, .6f)); m.SetColor("_GroundColor", new Color(.62f, .66f, .7f));
+            return m;
+        }
+
+        /// The only real lights besides the sun: a headlamp beam and a neon underglow on the car the camera follows.
+        public static void FollowCar(Transform car, bool player)
+        {
+            if (headlamp == null)
+            {
+                headlamp = new GameObject("Headlamp").AddComponent<Light>(); headlamp.type = LightType.Spot; headlamp.range = 110; headlamp.spotAngle = 70; headlamp.innerSpotAngle = 24;
+                headlamp.color = new Color(.78f, .9f, 1f); headlamp.intensity = 70; headlamp.shadows = LightShadows.None;
+                underglow = new GameObject("Underglow").AddComponent<Light>(); underglow.type = LightType.Spot; underglow.spotAngle = 160; underglow.innerSpotAngle = 100; underglow.range = 2.4f; underglow.intensity = 14; underglow.shadows = LightShadows.None;
+            }
+            headlamp.enabled = underglow.enabled = Night && car != null;
+            if (!headlamp.enabled) return;
+            headlamp.transform.position = car.position + car.forward * 3.2f + car.up * .9f; headlamp.transform.rotation = car.rotation * Quaternion.Euler(3f, 0, 0);
+            underglow.transform.position = car.position + car.up * .7f - car.forward * .4f; underglow.transform.rotation = car.rotation * Quaternion.Euler(90f, 0, 0);   // points down, so it only tints the road underglow.color = player ? Magenta : Cyan;
         }
 
         static void EnsureVolume(Camera cam)
@@ -75,7 +99,7 @@ namespace LightsOut
         {
             if (nightCube) return nightCube;
             const int S = 64; nightCube = new Cubemap(S, TextureFormat.RGBAHalf, true);
-            Color top = new Color(.012f, .018f, .06f), ground = new Color(.004f, .004f, .012f), warm = new Color(.5f, .12f, .55f), cool = new Color(.1f, .3f, .6f);
+            Color top = new Color(.012f, .018f, .07f), haze = new Color(.09f, .06f, .24f), ground = new Color(.004f, .004f, .012f), warm = new Color(.5f, .12f, .55f), cool = new Color(.1f, .3f, .6f);
             for (int f = 0; f < 6; f++)
             {
                 var px = new Color[S * S];
@@ -93,8 +117,8 @@ namespace LightsOut
                         }
                         d.Normalize(); float az = Mathf.Atan2(d.z, d.x), e = d.y;
                         var hue = Color.Lerp(warm, cool, .5f + .5f * Mathf.Sin(az + .6f));
-                        float glow = Mathf.Exp(-e * e * (e > 0 ? 28f : 220f)) * (.75f + .25f * Mathf.Sin(az * 2f + 1.3f));
-                        var c = (e > 0 ? Color.Lerp(top * 2.2f, top, Mathf.SmoothStep(0, .6f, e)) : ground) + hue * (glow * .5f);
+                        float glow = Mathf.Exp(-e * e * (e > 0 ? 7f : 220f)) * (.75f + .25f * Mathf.Sin(az * 2f + 1.3f));
+                        var c = (e > 0 ? Color.Lerp(haze, top, Mathf.SmoothStep(0, .85f, e)) : ground) + hue * (glow * .6f);
                         c.a = 1; px[y * S + x] = c;
                     }
                 nightCube.SetPixels(px, (CubemapFace)f);
