@@ -110,7 +110,7 @@ namespace LightsOut
             v.RearFlap = new GameObject("RearFlap").transform; v.RearFlap.SetParent(root, false); v.RearFlap.localPosition = CarModel.RearFlapAt;
             var rf = MeshPart(v.RearFlap, "Flap", CarModel.RearFlap, new[] { acc }, true);
             var lod = root.gameObject.AddComponent<LODGroup>();
-            lod.SetLODs(new[] { new LOD(.12f, new Renderer[] { near, ff, rf }), new LOD(.004f, new Renderer[] { far }) });
+            lod.SetLODs(new[] { new LOD(.095f, new Renderer[] { near, ff, rf }), new LOD(.004f, new Renderer[] { far }) });
             if (bandMesh == null) bandMesh = CarModel.Ring(.27f, .305f);
             int fi = 0, ri = 2;
             foreach (var W in CarModel.Wheels)
