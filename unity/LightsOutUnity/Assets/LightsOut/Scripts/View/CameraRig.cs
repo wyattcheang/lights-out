@@ -11,6 +11,16 @@ namespace LightsOut
 
         public CameraRig(Camera cam) { Cam = cam; Cam.nearClipPlane = .05f; Cam.farClipPlane = 6000f; }
 
+        // FOVs are tuned for a 16:9 screen; on narrower screens (phones in portrait) keep that horizontal view
+        // by widening the vertical FOV, up to 100 degrees, so the track doesn't look narrow next to the car
+        float FovFor(float v)
+        {
+            float a = Cam.aspect, reference = 16f / 9f;
+            if (a >= reference) return v;
+            float h = Mathf.Atan(Mathf.Tan(v * Mathf.Deg2Rad / 2) * reference);
+            return Mathf.Min(100f, 2 * Mathf.Atan(Mathf.Tan(h) / a) * Mathf.Rad2Deg);
+        }
+
         public void Follow(Car c, Track t, float dt, bool attract)
         {
             var mode = attract ? CamMode.Chase : Mode;
@@ -26,7 +36,7 @@ namespace LightsOut
                 float shake = (Random.value - .5f) * .006f * Mathf.Min(1, v / 80) * (c.Surf > 0 ? 3 : 1);
                 Cam.transform.position = Visuals.World(c.X, c.Y, y + 1.06f + bounce + shake) - fwd * .1f;
                 Cam.transform.rotation = Visuals.Yaw(c.H) * Quaternion.Euler(4.3f - grade * .9f + pitchLag, 0, -roll);
-                Cam.fieldOfView = 74 + Mathf.Min(12, v * .13f);
+                Cam.fieldOfView = FovFor(74 + Mathf.Min(12, v * .13f));
             }
             else if (mode == CamMode.Chase)
             {
@@ -35,7 +45,7 @@ namespace LightsOut
                 chasePos = Vector3.Lerp(chasePos, target, Mathf.Min(1, dt * 7));
                 Cam.transform.position = chasePos;
                 Cam.transform.LookAt(Visuals.World(c.X, c.Y, y + 1f) + fwd * 6f);
-                Cam.fieldOfView = 62 + Mathf.Min(10, v * .1f);
+                Cam.fieldOfView = FovFor(62 + Mathf.Min(10, v * .1f));
             }
             else
             {

@@ -1614,6 +1614,14 @@ function resize3D(){
   if(!R3.ok)return;
   R3.r.setSize(cw,ch,false);R3.cam.aspect=cw/Math.max(1,ch);R3.cam.updateProjectionMatrix();
 }
+/* camera FOVs are tuned for a 16:9 screen; on narrower screens (phones in portrait) keep that horizontal view
+   by widening the vertical FOV, up to 100 degrees, so the track doesn't look narrow next to the car */
+function fovFor(v){
+  const a=R3.cam.aspect,ref=16/9;
+  if(a>=ref)return v;
+  const h=Math.atan(Math.tan(v*Math.PI/360)*ref);
+  return Math.min(100,Math.atan(Math.tan(h)/a)*360/Math.PI);
+}
 /* ribbon between two lateral offsets (numbers or functions of the index) */
 function strip(o1,y1,o2,y2,mat,mask,vLen,uMax,opts){
   const n=TR.n,X=TR.X,Y=TR.Y,NX=TR.NX,NY=TR.NY,pos=[],uv=[];
@@ -2110,14 +2118,14 @@ function sync3D(dt){
     R3.pitch=(R3.pitch||0)+(((c.brk||0)*.018-(c.thr||0)*.006)-(R3.pitch||0))*Math.min(1,dt*5);
     cam.position.set(c.x-fx*.1,cy+1.06+shake+R3.bounce,c.y-fz*.1);
     cam.rotation.set(-.075-R3.pitch+Math.atan(gradeAt(c.pf)*Math.cos(c.h-Math.atan2(TR.TY[c.idx],TR.TX[c.idx])))*.9,-c.h-Math.PI/2,R3.roll);
-    cam.fov=74+Math.min(12,v*.13);
+    cam.fov=fovFor(74+Math.min(12,v*.13));
   }else{
     const tx=c.x-fx*8,tz=c.y-fz*8,ty=cy+2.6;
     if(!R3.chase||Math.hypot(R3.chase.x-tx,R3.chase.z-tz)>40)R3.chase={x:tx,y:ty,z:tz};
     const k=Math.min(1,dt*7);R3.chase.x+=(tx-R3.chase.x)*k;R3.chase.y+=(ty-R3.chase.y)*k;R3.chase.z+=(tz-R3.chase.z)*k;
     cam.position.set(R3.chase.x,R3.chase.y,R3.chase.z);
     cam.lookAt(c.x+fx*6,cy+1.0,c.y+fz*6);
-    cam.fov=62+Math.min(10,v*.1);
+    cam.fov=fovFor(62+Math.min(10,v*.1));
   }
   cam.updateProjectionMatrix();
   // shadow camera follows the viewed car
