@@ -59,6 +59,7 @@ Everything is built procedurally at runtime: terrain, track, kerbs, barriers, gr
 ## Credits
 
 - Circuit outlines: [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) (MIT).
+- Car model: ["F1 2026 concept (polygon model)"](https://sketchfab.com/3d-models/f1-2026-concept-polygon-model-ea3bde709b1e4dc9b0ec8557d106ed42) by [Qvist_designs](https://sketchfab.com/Qvist_Designs), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). `Assets/LightsOut/Resources/carmodel.json` is a decimated copy split into parts (the same data as the web build, made by `tools/carmodel/build_car.py`).
 - Elevation: aligned from public F1 timing telemetry ([TracingInsights](https://github.com/TracingInsights)).
 
 This is an unofficial fan project, not affiliated with Formula One Licensing B.V. or the FIA.

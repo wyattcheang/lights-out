@@ -1,3 +1,4 @@
+// 2026-style single-seater: the CarModel mesh when Resources/carmodel.json is present, otherwise a procedural fallback
 // Procedural 2026-style single-seater (lofted monocoque, sidepods, halo, suspension, wings with
 // active-aero flaps, compound-coloured tyre sidewalls) and its per-frame sync from the sim.
 using System.Collections.Generic;
@@ -15,65 +16,194 @@ namespace LightsOut
         Compound shownTyre = (Compound)(-1);
 
         // ---------- construction ----------
-        public static CarView Create(string name, Color paint, Color accent, bool isPlayer)
+        public static CarView Create(string name, Color paint, Color accent, bool isPlayer, int number = 0)
         {
             var root = new GameObject(name);
             var v = root.AddComponent<CarView>();
-            var mPaint = new Material(Visuals.Mat("paint", Color.white, null, .75f, .35f)); Visuals.SetColor(mPaint, paint);
-            var mAcc = new Material(Visuals.Mat("paint", Color.white, null, .75f, .35f)); Visuals.SetColor(mAcc, accent);
-            var mCarbon = Visuals.Mat("carbon", new Color(.09f, .1f, .11f), null, .45f, .2f);
-            var mTyre = Visuals.Mat("tyre", new Color(.07f, .07f, .07f), null, .1f);
-            var mRim = Visuals.Mat("rim", new Color(.35f, .37f, .4f), null, .6f, .8f);
-            var P = new List<CombineInstance>(); var A = new List<CombineInstance>(); var C = new List<CombineInstance>();
-            // monocoque / nose / engine cover
-            P.Add(CI(Loft(new[] { S(3.02f, .09f, .07f, .26f), S(2.78f, .2f, .13f, .28f), S(2.2f, .3f, .21f, .32f), S(1.5f, .42f, .3f, .39f), S(.95f, .64f, .42f, .45f), S(.4f, .8f, .46f, .48f), S(-.35f, .84f, .48f, .48f), S(-.85f, .8f, .66f, .56f), S(-1.5f, .62f, .56f, .55f), S(-2.1f, .4f, .4f, .48f), S(-2.48f, .26f, .28f, .44f) }, 20, 3), Matrix4x4.identity));
-            foreach (int s in new[] { -1, 1 }) P.Add(CI(Loft(new[] { S(.42f, .08f, .28f, .36f, .62f * s), S(.22f, .42f, .44f, .38f, .6f * s), S(-.5f, .46f, .46f, .38f, .58f * s), S(-1.2f, .34f, .38f, .35f, .5f * s), S(-1.9f, .14f, .24f, .32f, .36f * s) }, 16, 3.4f), Matrix4x4.identity));
-            C.Add(CI(Loft(new[] { S(-.22f, .18f, .12f, .88f), S(-.42f, .34f, .3f, .9f), S(-.9f, .3f, .32f, .84f), S(-1.6f, .1f, .22f, .7f), S(-2.25f, .04f, .14f, .6f) }, 14, 2.6f), Matrix4x4.identity));
-            C.Add(BoxCI(-.45f, .1f, 0, 3.9f, .045f, 1.5f));                     // floor
-            C.Add(BoxCI(2.88f, .11f, 0, .34f, .035f, 1.98f));                  // front wing main plane
-            foreach (int s in new[] { -1, 1 }) { A.Add(BoxCI(2.78f, .2f, .99f * s, .6f, .27f, .03f)); A.Add(BoxCI(-2.5f, .82f, .52f * s, .72f, .6f, .03f)); }
-            C.Add(BoxCI(-2.56f, .88f, 0, .28f, .04f, 1.02f));                  // rear wing main plane
-            C.Add(BoxCI(-2.42f, .44f, 0, .2f, .03f, .82f));                    // beam wing
-            A.Add(BoxCI(-.45f, 1.07f, 0, .18f, .06f, .07f));                   // T-cam
-            // halo: centre pillar plus a hoop of short segments
-            C.Add(BoxCI(.6f, .92f, 0, .03f, .52f, .045f, 0, 0, 16));
-            for (int k = 0; k <= 10; k++) { float a = Mathf.PI * (k / 10f - .5f); C.Add(BoxCI(.05f + Mathf.Cos(a) * .5f, 1.17f, Mathf.Sin(a) * .5f, .05f, .04f, .17f, 0, a * Mathf.Rad2Deg, 0)); }
-            // suspension arms
-            foreach (int s in new[] { -1, 1 })
+            // glossy clearcoat-like paint, satin carbon weave (tiled per metre of the model's box UVs),
+            // dark machined rims and matte rubber
+            bool hasModel = CarModel.Load();
+            var mPaint = Coated("paint", Color.white, hasModel ? Livery(paint, accent) : null, .7f, .15f); if (!hasModel) Visuals.SetColor(mPaint, paint);
+            var mAcc = Coated("accent", accent, null, .7f, .15f);
+            var mHalo = Visuals.Mat("halo", new Color(.035f, .037f, .042f), null, .62f, .55f);
+            var mCarbon = Visuals.Mat("carbon", Color.white, Visuals.Carbon, .72f, .2f, false, new Vector2(30, 30));
+            var mTyre = Visuals.Mat("tyre", new Color(.05f, .05f, .052f), null, .28f);
+            var mRim = Visuals.Mat("rim", new Color(.13f, .135f, .145f), null, .82f, .9f);
+            bool model = CarModel.Load();
+            v.Band = new Material(Visuals.Unlit("band", Color.yellow));
+            if (model) { BuildModel(root.transform, v, mPaint, mAcc, mCarbon, mHalo, mTyre, mRim); if (number > 0) Numbers(root.transform, number, Ink(accent), Ink(paint)); }
+            else
             {
-                C.Add(Rod(new Vector3(1.25f, .47f, .18f * s), new Vector3(1.55f, .46f, .7f * s))); C.Add(Rod(new Vector3(1.85f, .45f, .18f * s), new Vector3(1.55f, .46f, .7f * s)));
-                C.Add(Rod(new Vector3(1.3f, .3f, .2f * s), new Vector3(1.55f, .28f, .72f * s))); C.Add(Rod(new Vector3(-1.45f, .5f, .3f * s), new Vector3(-1.8f, .45f, .66f * s)));
-                C.Add(Rod(new Vector3(-1.5f, .3f, .3f * s), new Vector3(-1.8f, .3f, .66f * s)));
-                A.Add(BoxCI(.52f, .71f, .58f * s, .05f, .055f, .13f));      // mirrors
+                var P = new List<CombineInstance>(); var A = new List<CombineInstance>(); var C = new List<CombineInstance>();
+                // monocoque / nose / engine cover
+                P.Add(CI(Loft(new[] { S(3.02f, .09f, .07f, .26f), S(2.78f, .2f, .13f, .28f), S(2.2f, .3f, .21f, .32f), S(1.5f, .42f, .3f, .39f), S(.95f, .64f, .42f, .45f), S(.4f, .8f, .46f, .48f), S(-.35f, .84f, .48f, .48f), S(-.85f, .8f, .66f, .56f), S(-1.5f, .62f, .56f, .55f), S(-2.1f, .4f, .4f, .48f), S(-2.48f, .26f, .28f, .44f) }, 20, 3), Matrix4x4.identity));
+                foreach (int s in new[] { -1, 1 }) P.Add(CI(Loft(new[] { S(.42f, .08f, .28f, .36f, .62f * s), S(.22f, .42f, .44f, .38f, .6f * s), S(-.5f, .46f, .46f, .38f, .58f * s), S(-1.2f, .34f, .38f, .35f, .5f * s), S(-1.9f, .14f, .24f, .32f, .36f * s) }, 16, 3.4f), Matrix4x4.identity));
+                C.Add(CI(Loft(new[] { S(-.22f, .18f, .12f, .88f), S(-.42f, .34f, .3f, .9f), S(-.9f, .3f, .32f, .84f), S(-1.6f, .1f, .22f, .7f), S(-2.25f, .04f, .14f, .6f) }, 14, 2.6f), Matrix4x4.identity));
+                C.Add(BoxCI(-.45f, .1f, 0, 3.9f, .045f, 1.5f));                     // floor
+                C.Add(BoxCI(2.88f, .11f, 0, .34f, .035f, 1.98f));                  // front wing main plane
+                foreach (int s in new[] { -1, 1 }) { A.Add(BoxCI(2.78f, .2f, .99f * s, .6f, .27f, .03f)); A.Add(BoxCI(-2.5f, .82f, .52f * s, .72f, .6f, .03f)); }
+                C.Add(BoxCI(-2.56f, .88f, 0, .28f, .04f, 1.02f));                  // rear wing main plane
+                C.Add(BoxCI(-2.42f, .44f, 0, .2f, .03f, .82f));                    // beam wing
+                A.Add(BoxCI(-.45f, 1.07f, 0, .18f, .06f, .07f));                   // T-cam
+                // halo: centre pillar plus a hoop of short segments
+                C.Add(BoxCI(.6f, .92f, 0, .03f, .52f, .045f, 0, 0, 16));
+                for (int k = 0; k <= 10; k++) { float a = Mathf.PI * (k / 10f - .5f); C.Add(BoxCI(.05f + Mathf.Cos(a) * .5f, 1.17f, Mathf.Sin(a) * .5f, .05f, .04f, .17f, 0, a * Mathf.Rad2Deg, 0)); }
+                // suspension arms
+                foreach (int s in new[] { -1, 1 })
+                {
+                    C.Add(Rod(new Vector3(1.25f, .47f, .18f * s), new Vector3(1.55f, .46f, .7f * s))); C.Add(Rod(new Vector3(1.85f, .45f, .18f * s), new Vector3(1.55f, .46f, .7f * s)));
+                    C.Add(Rod(new Vector3(1.3f, .3f, .2f * s), new Vector3(1.55f, .28f, .72f * s))); C.Add(Rod(new Vector3(-1.45f, .5f, .3f * s), new Vector3(-1.8f, .45f, .66f * s)));
+                    C.Add(Rod(new Vector3(-1.5f, .3f, .3f * s), new Vector3(-1.8f, .3f, .66f * s)));
+                    A.Add(BoxCI(.52f, .71f, .58f * s, .05f, .055f, .13f));      // mirrors
+                }
+                AddMesh(root.transform, "Paint", P, mPaint, true); AddMesh(root.transform, "Accent", A, mAcc, true); AddMesh(root.transform, "Carbon", C, mCarbon, true);
+                // active-aero flaps
+                v.FrontFlap = Pivot(root.transform, "FrontFlap", new Vector3(2.72f, .19f, 0)); Part(v.FrontFlap, new Vector3(-.1f, 0, 0), new Vector3(.22f, .03f, 1.78f), mPaint);
+                v.RearFlap = Pivot(root.transform, "RearFlap", new Vector3(-2.42f, 1f, 0)); Part(v.RearFlap, new Vector3(-.12f, 0, 0), new Vector3(.24f, .04f, 1.02f), mAcc);
+                int w = 0;
+                foreach (int s in new[] { -1, 1 })
+                {
+                    v.FrontPivots[w] = Pivot(root.transform, "FrontWheel", new Vector3(1.55f, .36f, .86f * s));
+                    v.Spins[w] = Wheel(v.FrontPivots[w], .36f, .37f, mTyre, mRim, v.Band);
+                    var rear = Pivot(root.transform, "RearWheel", new Vector3(-1.8f, .38f, .84f * s));
+                    v.Spins[2 + w] = Wheel(rear, .38f, .45f, mTyre, mRim, v.Band); w++;
+                }
             }
-            AddMesh(root.transform, "Paint", P, mPaint, true); AddMesh(root.transform, "Accent", A, mAcc, true); AddMesh(root.transform, "Carbon", C, mCarbon, true);
-            // active-aero flaps
-            v.FrontFlap = Pivot(root.transform, "FrontFlap", new Vector3(2.72f, .19f, 0)); Part(v.FrontFlap, new Vector3(-.1f, 0, 0), new Vector3(.22f, .03f, 1.78f), mPaint);
-            v.RearFlap = Pivot(root.transform, "RearFlap", new Vector3(-2.42f, 1f, 0)); Part(v.RearFlap, new Vector3(-.12f, 0, 0), new Vector3(.24f, .04f, 1.02f), mAcc);
             // driver
-            v.Helmet = Pivot(root.transform, "Helmet", new Vector3(-.05f, .8f, 0));
-            var hm = new GameObject("Shell"); hm.transform.SetParent(v.Helmet, false); hm.transform.localScale = Vector3.one * .33f;
+            v.Helmet = Pivot(root.transform, "Helmet", model ? new Vector3(-.1f, .82f, 0) : new Vector3(-.05f, .8f, 0));
+            var hm = new GameObject("Shell"); hm.transform.SetParent(v.Helmet, false); hm.transform.localScale = Vector3.one * (model ? .3f : .33f);
             hm.AddComponent<MeshFilter>().sharedMesh = Visuals.Sphere; hm.AddComponent<MeshRenderer>().sharedMaterial = isPlayer ? Visuals.Mat("helmetW", Color.white, null, .8f) : mAcc;
             Part(v.Helmet, new Vector3(.12f, .02f, 0), new Vector3(.08f, .07f, .24f), Visuals.Mat("visor", new Color(.03f, .04f, .05f), null, .95f, .6f));
-            // wheels
-            v.Band = new Material(Visuals.Unlit("band", Color.yellow));
-            int w = 0;
+            v.RainLight = new Material(Visuals.Unlit("rainlight", new Color(.2f, 0, 0)));
+            Part(root.transform, model ? new Vector3(-2.6f, .39f, 0) : new Vector3(-2.63f, .5f, 0), new Vector3(.04f, .08f, .14f), v.RainLight);
+            // emissive-only lighting: headlight bars, tail light strips and a neon line along each floor edge
+            var mHead = Visuals.Neon("headlight", new Color(.8f, .95f, 1f), 3.5f); var mTail = Visuals.Neon("taillight", new Color(1f, .06f, .12f), 3.5f);
+            var mLine = Visuals.Neon(isPlayer ? "carlineP" : "carline", isPlayer ? Look.Magenta : Look.Cyan, 2.6f);
             foreach (int s in new[] { -1, 1 })
             {
-                v.FrontPivots[w] = Pivot(root.transform, "FrontWheel", new Vector3(1.55f, .36f, .86f * s));
-                v.Spins[w] = Wheel(v.FrontPivots[w], .36f, .37f, mTyre, mRim, v.Band);
-                var rear = Pivot(root.transform, "RearWheel", new Vector3(-1.8f, .38f, .84f * s));
-                v.Spins[2 + w] = Wheel(rear, .38f, .45f, mTyre, mRim, v.Band); w++;
+                if (model)
+                {
+                    Part(root.transform, new Vector3(2.62f, .12f, .62f * s), new Vector3(.02f, .025f, .3f), mHead);
+                    Part(root.transform, new Vector3(-2.56f, .62f, .47f * s), new Vector3(.02f, .4f, .03f), mTail);
+                    Part(root.transform, new Vector3(-.3f, .085f, .77f * s), new Vector3(3.4f, .02f, .02f), mLine);
+                }
+                else
+                {
+                    Part(root.transform, new Vector3(3.06f, .12f, .6f * s), new Vector3(.02f, .03f, .5f), mHead);
+                    Part(root.transform, new Vector3(-2.87f, .6f, .52f * s), new Vector3(.02f, .46f, .035f), mTail);
+                    Part(root.transform, new Vector3(-.45f, .125f, .76f * s), new Vector3(3.5f, .02f, .02f), mLine);
+                }
             }
-            v.RainLight = new Material(Visuals.Unlit("rainlight", new Color(.2f, 0, 0)));
-            Part(root.transform, new Vector3(-2.63f, .5f, 0), new Vector3(.04f, .08f, .14f), v.RainLight);
             if (isPlayer)
             {
-                v.SteeringWheel = Pivot(root.transform, "SteeringWheel", new Vector3(.4f, .72f, 0));
+                v.SteeringWheel = Pivot(root.transform, "SteeringWheel", model ? new Vector3(.28f, .72f, 0) : new Vector3(.4f, .72f, 0));
                 Part(v.SteeringWheel, Vector3.zero, new Vector3(.04f, .13f, .27f), mCarbon);
                 Part(v.SteeringWheel, new Vector3(-.022f, .005f, 0), new Vector3(.01f, .055f, .11f), Visuals.Unlit("screen", new Color(.1f, .45f, .25f)));
             }
             return v;
+        }
+
+        /// Car paint: URP's Complex Lit with a clear coat when it is available, plain glossy Lit otherwise.
+        static Material Coated(string name, Color color, Texture2D map, float smooth, float metal)
+        {
+            var sh = Shader.Find("Universal Render Pipeline/Complex Lit");
+            if (sh == null) { var f = new Material(Visuals.Mat("paint", Color.white, null, .9f, .3f)); Visuals.SetColor(f, color); if (map) f.SetTexture("_BaseMap", map); return f; }
+            var m = new Material(sh) { name = name };
+            m.SetColor("_BaseColor", color); if (map) m.SetTexture("_BaseMap", map); m.SetFloat("_Smoothness", smooth); m.SetFloat("_Metallic", metal);
+            m.SetFloat("_ClearCoat", 1); m.SetFloat("_ClearCoatMask", 1); m.SetFloat("_ClearCoatSmoothness", .95f); m.EnableKeyword("_CLEARCOAT");
+            return m;
+        }
+        // Two-tone livery in the paint's side projection (see CarModel): body colour, an accent lower edge, and an
+        // accent band with a light pinstripe that rises towards the tail.
+        static Texture2D Livery(Color paint, Color accent)
+        {
+            const int W = 1024, H = 256; var t = new Texture2D(W, H, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, anisoLevel = 8, filterMode = FilterMode.Trilinear };
+            Color pin = Color.Lerp(paint, Color.white, .8f), deep = paint * .8f; deep.a = 1; var px = new Color[W * H];
+            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
+                {
+                    float u = (x + .5f) / W, v = (y + .5f) / H;                                   // u = 0 at the tail, v = 0 at the floor
+                    Color c = Color.Lerp(deep, paint, Mathf.SmoothStep(.1f, .45f, v));
+                    float d = v - (.2f + Mathf.Max(0, .6f - u) * .62f);                             // distance above the band's lower edge
+                    float band = Mathf.Clamp01(d * 120f) * Mathf.Clamp01((.085f - d) * 120f), line = Mathf.Clamp01((d + .034f) * 120f) * Mathf.Clamp01((-.016f - d) * 120f);
+                    c = Color.Lerp(c, accent, band); c = Color.Lerp(c, pin, line);
+                    c = Color.Lerp(c, accent, Mathf.Clamp01((.11f - v) * 120f));
+                    px[y * W + x] = c;
+                }
+            t.SetPixels(px); t.Apply(true); return t;
+        }
+        static Mesh markMesh; static Material markMat;
+
+        // Race numbers as projected decals, so they follow the bodywork: both rear wing endplates and the top of the nose.
+        // Needs the Decal renderer feature (Lights Out > Set Up Scene adds it); without it the projectors draw nothing.
+        static readonly Dictionary<long, Material> numberMats = new Dictionary<long, Material>();
+        static Color Ink(Color on) { return on.grayscale > .45f ? new Color(.03f, .035f, .045f) : new Color(.96f, .96f, .94f); }
+        static Material NumberMat(Shader sh, int number, Color ink)
+        {
+            long key = number * 2 + (ink.grayscale > .5f ? 1 : 0); Material m;
+            if (!numberMats.TryGetValue(key, out m) || !m) { m = new Material(sh) { name = "number" + number }; m.SetTexture("Base_Map", Visuals.NumberTexture(number, ink)); numberMats[key] = m; }
+            return m;
+        }
+        static void Numbers(Transform root, int number, Color plateInk, Color noseInk)
+        {
+            var sh = Shader.Find("Shader Graphs/Decal"); if (sh == null) return;
+            foreach (int s in new[] { -1, 1 }) Decal(root, new Vector3(.66f * s, .775f, -2.3f), Quaternion.LookRotation(Vector3.left * s, Vector3.up), new Vector3(.36f, .25f, .1f), NumberMat(sh, number, plateInk));
+            Decal(root, new Vector3(0, .8f, 1.84f), Quaternion.LookRotation(Vector3.down, Vector3.back), new Vector3(.38f, .285f, .42f), NumberMat(sh, number, noseInk));
+        }
+        static void Decal(Transform root, Vector3 at, Quaternion rot, Vector3 size, Material m)
+        {
+            var g = new GameObject("Number"); g.transform.SetParent(root, false); g.transform.localPosition = at; g.transform.localRotation = rot;
+            var d = g.AddComponent<UnityEngine.Rendering.Universal.DecalProjector>(); d.material = m; d.size = size; d.pivot = new Vector3(0, 0, size.z / 2); d.drawDistance = 90; d.fadeScale = .85f;
+        }
+
+        // Body from CarModel (near and far detail levels), active-aero flaps on their leading-edge pivots,
+        // and the model's right-hand wheels, mirrored for the left side.
+        static void BuildModel(Transform root, CarView v, Material paint, Material acc, Material carbon, Material halo, Material tyre, Material rim)
+        {
+            var near = MeshPart(root, "Body", CarModel.Body, new[] { paint, acc, carbon, halo }, true);
+            var mid = CarModel.BodyMid ? MeshPart(root, "BodyMid", CarModel.BodyMid, new[] { paint, acc, carbon, halo }, true) : null;
+            var far = MeshPart(root, "BodyFar", CarModel.BodyFar, new[] { paint, acc, carbon, halo }, true);
+            v.FrontFlap = new GameObject("FrontFlap").transform; v.FrontFlap.SetParent(root, false); v.FrontFlap.localPosition = CarModel.FrontFlapAt;
+            var ff = MeshPart(v.FrontFlap, "Flap", CarModel.FrontFlap, new[] { carbon }, true);
+            v.RearFlap = new GameObject("RearFlap").transform; v.RearFlap.SetParent(root, false); v.RearFlap.localPosition = CarModel.RearFlapAt;
+            var rf = MeshPart(v.RearFlap, "Flap", CarModel.RearFlap, new[] { acc }, true);
+            var lod = root.gameObject.AddComponent<LODGroup>();
+            // full detail within about 12 m, the 24k mid body to about 45 m (flaps fixed in it), then the far body
+            lod.SetLODs(mid ? new[] { new LOD(.35f, new Renderer[] { near, ff, rf }), new LOD(.095f, new Renderer[] { mid }), new LOD(.004f, new Renderer[] { far }) }
+                            : new[] { new LOD(.095f, new Renderer[] { near, ff, rf }), new LOD(.004f, new Renderer[] { far }) });
+            if (bandMesh == null) bandMesh = CarModel.Ring(.27f, .305f);
+            if (markMesh == null) markMesh = CarModel.Marks(.212f, .258f, -.62f, .62f, 11);
+            if (markMat == null) markMat = Visuals.Mat("tyreMark", new Color(.9f, .9f, .88f), null, .25f);
+            int fi = 0, ri = 2;
+            foreach (var W in CarModel.Wheels)
+                foreach (int s in new[] { -1, 1 })
+                {
+                    var piv = new GameObject(W.Front ? "FrontWheel" : "RearWheel").transform; piv.SetParent(root, false);
+                    piv.localPosition = new Vector3(W.At.x * s, W.At.y, W.At.z);
+                    var spin = new GameObject("Spin").transform; spin.SetParent(piv, false);
+                    var wm = MeshPart(spin, "Wheel", W.Mesh, new[] { tyre, rim }, true);
+                    if (s < 0) wm.transform.localScale = new Vector3(-1, 1, 1);
+                    foreach (int k in new[] { -1, 1 })
+                    {
+                        var band = new GameObject("Band"); band.transform.SetParent(piv, false); band.transform.localPosition = new Vector3(k * (W.Width / 2 + .003f), 0, 0);
+                        band.AddComponent<MeshFilter>().sharedMesh = bandMesh; var br = band.AddComponent<MeshRenderer>(); br.sharedMaterial = v.Band; br.shadowCastingMode = ShadowCastingMode.Off;
+                        // sidewall lettering, top and bottom, turning with the wheel
+                        foreach (float flip in new[] { 0f, 180f })
+                        {
+                            var mk = new GameObject("Mark"); mk.transform.SetParent(spin, false); mk.transform.localPosition = new Vector3(k * (W.Width / 2 + .004f), 0, 0); mk.transform.localRotation = Quaternion.Euler(flip, 0, 0);
+                            mk.AddComponent<MeshFilter>().sharedMesh = markMesh; var mr = mk.AddComponent<MeshRenderer>(); mr.sharedMaterial = markMat; mr.shadowCastingMode = ShadowCastingMode.Off;
+                        }
+                    }
+                    if (W.Front) { if (fi < 2) { v.FrontPivots[fi] = piv; v.Spins[fi] = spin; fi++; } }
+                    else if (ri < 4) v.Spins[ri++] = spin;
+                }
+        }
+        static Mesh bandMesh;
+        static MeshRenderer MeshPart(Transform parent, string name, Mesh mesh, Material[] mats, bool shadows)
+        {
+            var g = new GameObject(name); g.transform.SetParent(parent, false);
+            g.AddComponent<MeshFilter>().sharedMesh = mesh; var mr = g.AddComponent<MeshRenderer>(); mr.sharedMaterials = mats;
+            mr.shadowCastingMode = shadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            return mr;
         }
 
         struct Sec { public float X, W, H, Yc, Zc; }
@@ -156,8 +286,8 @@ namespace LightsOut
             float spin = c.VF * dt / .37f * Mathf.Rad2Deg; foreach (var s in Spins) if (s) s.Rotate(spin, 0, 0, Space.Self);
             if (shownTyre != c.Tyre) { shownTyre = c.Tyre; var ts = Config.Tyres[(int)c.Tyre]; Visuals.SetColor(Band, new Color(ts.R, ts.G, ts.B)); }
             float open = c.StraightMode ? 1 : 0;
-            FrontFlap.localRotation = Quaternion.Slerp(FrontFlap.localRotation, Quaternion.Euler(16f * open, 0, 0), dt * 10);
-            RearFlap.localRotation = Quaternion.Slerp(RearFlap.localRotation, Quaternion.Euler(-32f * open, 0, 0), dt * 10);
+            FrontFlap.localRotation = Quaternion.Slerp(FrontFlap.localRotation, Quaternion.Euler((CarModel.Body ? -8f : 16f) * open, 0, 0), dt * 10);
+            RearFlap.localRotation = Quaternion.Slerp(RearFlap.localRotation, Quaternion.Euler((CarModel.Body ? -26f : -32f) * open, 0, 0), dt * 10);
             bool flash = (c.Harv > 0 && c.Thr > .9f) || c.Pit != null;
             Visuals.SetColor(RainLight, flash && ((int)(time * 6)) % 2 == 0 ? new Color(1, .15f, .1f) : new Color(.2f, 0, 0));
             if (Helmet) Helmet.gameObject.SetActive(!cockpitOfThisCar);
