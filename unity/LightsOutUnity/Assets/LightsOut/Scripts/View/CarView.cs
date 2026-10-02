@@ -104,13 +104,16 @@ namespace LightsOut
         static void BuildModel(Transform root, CarView v, Material paint, Material acc, Material carbon, Material tyre, Material rim)
         {
             var near = MeshPart(root, "Body", CarModel.Body, new[] { paint, acc, carbon }, true);
+            var mid = CarModel.BodyMid ? MeshPart(root, "BodyMid", CarModel.BodyMid, new[] { paint, acc, carbon }, true) : null;
             var far = MeshPart(root, "BodyFar", CarModel.BodyFar, new[] { paint, acc, carbon }, true);
             v.FrontFlap = new GameObject("FrontFlap").transform; v.FrontFlap.SetParent(root, false); v.FrontFlap.localPosition = CarModel.FrontFlapAt;
             var ff = MeshPart(v.FrontFlap, "Flap", CarModel.FrontFlap, new[] { carbon }, true);
             v.RearFlap = new GameObject("RearFlap").transform; v.RearFlap.SetParent(root, false); v.RearFlap.localPosition = CarModel.RearFlapAt;
             var rf = MeshPart(v.RearFlap, "Flap", CarModel.RearFlap, new[] { acc }, true);
             var lod = root.gameObject.AddComponent<LODGroup>();
-            lod.SetLODs(new[] { new LOD(.095f, new Renderer[] { near, ff, rf }), new LOD(.004f, new Renderer[] { far }) });
+            // full detail within about 12 m, the 24k mid body to about 45 m (flaps fixed in it), then the far body
+            lod.SetLODs(mid ? new[] { new LOD(.35f, new Renderer[] { near, ff, rf }), new LOD(.095f, new Renderer[] { mid }), new LOD(.004f, new Renderer[] { far }) }
+                            : new[] { new LOD(.095f, new Renderer[] { near, ff, rf }), new LOD(.004f, new Renderer[] { far }) });
             if (bandMesh == null) bandMesh = CarModel.Ring(.27f, .305f);
             int fi = 0, ri = 2;
             foreach (var W in CarModel.Wheels)

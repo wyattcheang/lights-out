@@ -1,7 +1,8 @@
 // Car body: "F1 2026 concept (polygon model)" by Qvist_designs, CC BY 4.0,
 // https://sketchfab.com/3d-models/f1-2026-concept-polygon-model-ea3bde709b1e4dc9b0ec8557d106ed42
-// Decimated and split by tools/carmodel/build_car.py into Resources/carmodel.json (the same data as the
-// web build's carmodel.js). Model space is x forward, y up, z lateral, metres, front axle at x = 1.55.
+// Decimated and split by tools/carmodel/build_car.py into Resources/carmodel.json: a 200k-triangle near body
+// with separate active-aero flaps, 24k and 5k triangle mid and far bodies, and 9k-triangle wheels.
+// Model space is x forward, y up, z lateral, metres, front axle at x = 1.55.
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,14 +12,14 @@ namespace LightsOut
 {
     public static class CarModel
     {
-        [Serializable] public class Part { public float[] lo, hi, at; public string p, i; public int[] g; public float r, w; public bool front; }
+        [Serializable] public class Part { public float[] lo, hi, at; public string p, i; public int[] g; public float r, w; public bool front, i32; }
         [Serializable] public class HiLevel { public Part body, fFlap, rFlap; }
-        [Serializable] public class Data { public HiLevel hi; public Part lo; public Part[] wheels; }
+        [Serializable] public class Data { public HiLevel hi; public Part mid, lo; public Part[] wheels; }
 
         public class Wheel { public Vector3 At; public float Radius, Width; public bool Front; public Mesh Mesh; }
 
         public static Data Raw { get; private set; }
-        public static Mesh Body, BodyFar, FrontFlap, RearFlap;
+        public static Mesh Body, BodyMid, BodyFar, FrontFlap, RearFlap;
         public static Vector3 FrontFlapAt, RearFlapAt;
         public static readonly List<Wheel> Wheels = new List<Wheel>();
 
@@ -27,7 +28,7 @@ namespace LightsOut
             if (Body) return true;
             var txt = Resources.Load<TextAsset>("carmodel"); if (txt == null) return false;
             Raw = JsonUtility.FromJson<Data>(txt.text);
-            Body = Decode(Raw.hi.body, "CarBody"); BodyFar = Decode(Raw.lo, "CarBodyFar");
+            Body = Decode(Raw.hi.body, "CarBody"); BodyMid = Raw.mid != null && !string.IsNullOrEmpty(Raw.mid.p) ? Decode(Raw.mid, "CarBodyMid") : null; BodyFar = Decode(Raw.lo, "CarBodyFar");
             FrontFlap = Decode(Raw.hi.fFlap, "CarFrontFlap"); RearFlap = Decode(Raw.hi.rFlap, "CarRearFlap");
             FrontFlapAt = M(Raw.hi.fFlap.at); RearFlapAt = M(Raw.hi.rFlap.at);
             Wheels.Clear();
@@ -44,7 +45,7 @@ namespace LightsOut
         static Mesh Decode(Part d, string name)
         {
             var qb = Convert.FromBase64String(d.p); var ib = Convert.FromBase64String(d.i);
-            int nv = qb.Length / 6, nc = ib.Length / 2;
+            int isz = d.i32 ? 4 : 2, nv = qb.Length / 6, nc = ib.Length / isz;
             var P = new Vector3[nv];
             for (int v = 0; v < nv; v++)
             {
@@ -56,9 +57,9 @@ namespace LightsOut
             var idx = new int[nc];
             for (int k = 0; k < nc; k += 3)
             {
-                idx[k] = BitConverter.ToUInt16(ib, k * 2);
-                idx[k + 1] = BitConverter.ToUInt16(ib, (k + 2) * 2);
-                idx[k + 2] = BitConverter.ToUInt16(ib, (k + 1) * 2);
+                idx[k] = Index(ib, k, d.i32);
+                idx[k + 1] = Index(ib, k + 2, d.i32);
+                idx[k + 2] = Index(ib, k + 1, d.i32);
             }
             var FN = new Vector3[nc / 3];
             for (int f = 0; f < nc / 3; f++) { Vector3 a = P[idx[f * 3]], b = P[idx[f * 3 + 1]], c = P[idx[f * 3 + 2]]; FN[f] = Vector3.Cross(b - a, c - a).normalized; }
@@ -90,6 +91,8 @@ namespace LightsOut
             mesh.RecalculateBounds();
             return mesh;
         }
+
+        static int Index(byte[] b, int k, bool wide) { return wide ? (int)BitConverter.ToUInt32(b, k * 4) : BitConverter.ToUInt16(b, k * 2); }
 
         /// A flat ring in the wheel plane (Unity local Y-Z), facing both ways: the compound-coloured sidewall band.
         public static Mesh Ring(float r0, float r1, int seg = 40)
