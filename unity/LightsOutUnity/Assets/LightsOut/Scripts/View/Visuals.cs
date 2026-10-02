@@ -107,6 +107,22 @@ namespace LightsOut
         public static Texture2D Gravel { get { if (!gravel) { var r = new System.Random(3); var b = Hex("#b6a785"); gravel = Tex(256, 256, (x, y) => Speckle(b, .5f, r)); } return gravel; } }
         // neon kerbs: cyan and magenta blocks separated by dark gaps (v runs along the track)
         public static Texture2D Kerb { get { if (!kerb) { var dark = Hex("#0b0d14"); kerb = Tex(16, 64, (x, y) => y < 16 ? Look.Cyan : y < 32 ? dark : y < 48 ? Look.Magenta : dark); } return kerb; } }
+        // 2x2 twill carbon weave: tows alternate direction every cell and are shaded across their width
+        public static Texture2D Carbon
+        {
+            get
+            {
+                if (!carbonTex) carbonTex = Tex(64, 64, (x, y) =>
+                {
+                    int cx = x / 16, cy = y / 16; bool along = ((cx + cy) & 1) == 0;
+                    float u = ((along ? y : x) % 16) / 15f, sheen = .55f + .45f * Mathf.Sin(u * Mathf.PI);
+                    float k = along ? .8f + .35f * sheen : .45f + .3f * sheen;
+                    return new Color(.13f * k, .135f * k, .145f * k, 1);
+                });
+                return carbonTex;
+            }
+        }
+        static Texture2D carbonTex;
         public static Texture2D Puff { get { if (!puff) puff = Tex(32, 32, (x, y) => { float d = Mathf.Sqrt((x - 15.5f) * (x - 15.5f) + (y - 15.5f) * (y - 15.5f)) / 15.5f; return new Color(1, 1, 1, Mathf.Clamp01(1 - d) * Mathf.Clamp01(1 - d)); }, false); return puff; } }
         public static Texture2D Check { get { if (!check) check = Tex(64, 8, (x, y) => ((x / 4 + y / 4) % 2 == 0) ? Hex("#f2f0ea") : Hex("#111111")); return check; } }
         public static Texture2D Fence

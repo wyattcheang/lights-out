@@ -20,11 +20,13 @@ namespace LightsOut
         {
             var root = new GameObject(name);
             var v = root.AddComponent<CarView>();
-            var mPaint = new Material(Visuals.Mat("paint", Color.white, null, .8f, .4f)); Visuals.SetColor(mPaint, paint);
-            var mAcc = new Material(Visuals.Mat("paint", Color.white, null, .8f, .4f)); Visuals.SetColor(mAcc, accent);
-            var mCarbon = Visuals.Mat("carbon", new Color(.09f, .1f, .11f), null, .45f, .2f);
-            var mTyre = Visuals.Mat("tyre", new Color(.07f, .07f, .07f), null, .1f);
-            var mRim = Visuals.Mat("rim", new Color(.35f, .37f, .4f), null, .6f, .8f);
+            // glossy clearcoat-like paint, satin carbon weave (tiled per metre of the model's box UVs),
+            // dark machined rims and matte rubber
+            var mPaint = new Material(Visuals.Mat("paint", Color.white, null, .9f, .3f)); Visuals.SetColor(mPaint, paint);
+            var mAcc = new Material(Visuals.Mat("paint", Color.white, null, .9f, .3f)); Visuals.SetColor(mAcc, accent);
+            var mCarbon = Visuals.Mat("carbon", Color.white, Visuals.Carbon, .72f, .2f, false, new Vector2(30, 30));
+            var mTyre = Visuals.Mat("tyre", new Color(.05f, .05f, .052f), null, .28f);
+            var mRim = Visuals.Mat("rim", new Color(.13f, .135f, .145f), null, .82f, .9f);
             bool model = CarModel.Load();
             v.Band = new Material(Visuals.Unlit("band", Color.yellow));
             if (model) BuildModel(root.transform, v, mPaint, mAcc, mCarbon, mTyre, mRim);

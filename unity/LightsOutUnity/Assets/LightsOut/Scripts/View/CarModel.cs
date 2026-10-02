@@ -80,8 +80,15 @@ namespace LightsOut
                 }
                 for (int j = 0; j < gN.Count; j++) oN[gId[j]] = gS[j].normalized;
             }
+            // box-projected UVs in metres, so tiled detail textures (carbon weave) have a consistent scale
+            var oU = new List<Vector2>(oP.Count);
+            for (int k = 0; k < oP.Count; k++)
+            {
+                Vector3 p = oP[k], n = oN[k]; float ax = Mathf.Abs(n.x), ay = Mathf.Abs(n.y), az = Mathf.Abs(n.z);
+                oU.Add(ax >= ay && ax >= az ? new Vector2(p.z, p.y) : ay >= az ? new Vector2(p.x, p.z) : new Vector2(p.x, p.y));
+            }
             var mesh = new Mesh { name = name, indexFormat = oP.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
-            mesh.SetVertices(oP); mesh.SetNormals(oN);
+            mesh.SetVertices(oP); mesh.SetNormals(oN); mesh.SetUVs(0, oU);
             if (d.g != null && d.g.Length > 0)
             {
                 mesh.subMeshCount = d.g.Length; int o = 0;
