@@ -69,12 +69,13 @@ namespace LightsOut
         }
         static Color Speckle(Color a, float amt, System.Random r) { float k = 1f + ((float)r.NextDouble() - .5f) * amt; return new Color(a.r * k, a.g * k, a.b * k, 1); }
 
-        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city;
+        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff;
         public static Texture2D Asphalt { get { if (!asphalt) { var r = new System.Random(1); var b = Hex("#55585e"); asphalt = Tex(256, 256, (x, y) => Speckle(b, .35f, r)); } return asphalt; } }
         public static Texture2D Grass { get { if (!grass) { var r = new System.Random(2); var b = Hex("#3c7136"); grass = Tex(256, 256, (x, y) => { var c = Speckle(b, .3f, r); return x < 128 ? c * 1.06f : c; }); } return grass; } }
         public static Texture2D City { get { if (!city) { var r = new System.Random(7); var b = Hex("#6c6f74"); city = Tex(256, 256, (x, y) => (x % 128 < 2 || y % 128 < 2) ? b * .8f : Speckle(b, .2f, r)); } return city; } }
         public static Texture2D Gravel { get { if (!gravel) { var r = new System.Random(3); var b = Hex("#b6a785"); gravel = Tex(256, 256, (x, y) => Speckle(b, .5f, r)); } return gravel; } }
         public static Texture2D Kerb { get { if (!kerb) { var red = Hex("#d8322a"); var wht = Hex("#f3f0ea"); kerb = Tex(16, 64, (x, y) => y < 32 ? wht : red); } return kerb; } }
+        public static Texture2D Puff { get { if (!puff) puff = Tex(32, 32, (x, y) => { float d = Mathf.Sqrt((x - 15.5f) * (x - 15.5f) + (y - 15.5f) * (y - 15.5f)) / 15.5f; return new Color(1, 1, 1, Mathf.Clamp01(1 - d) * Mathf.Clamp01(1 - d)); }, false); return puff; } }
         public static Texture2D Check { get { if (!check) check = Tex(64, 8, (x, y) => ((x / 4 + y / 4) % 2 == 0) ? Hex("#f2f0ea") : Hex("#111111")); return check; } }
         public static Texture2D Fence
         {

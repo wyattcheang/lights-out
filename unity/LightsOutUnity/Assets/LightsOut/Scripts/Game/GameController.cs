@@ -176,7 +176,13 @@ namespace LightsOut
             var em = smoke.emission; em.enabled = false;
             var sz = smoke.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, .6f, 1, 3f));
             var col = smoke.colorOverLifetime; col.enabled = true; var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(.45f, 0), new GradientAlphaKey(0, 1) }); col.color = gr;
-            var r = smoke.GetComponent<ParticleSystemRenderer>(); r.material = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit"));
+            var r = smoke.GetComponent<ParticleSystemRenderer>(); var m = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit"));
+            // soft alpha-blended puffs; the shader's default is an opaque, untextured quad
+            m.mainTexture = Visuals.Puff; if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", Visuals.Puff);
+            m.SetFloat("_Surface", 1); m.SetFloat("_Blend", 0); m.SetFloat("_Mode", 2); m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetFloat("_SrcBlendAlpha", 1); m.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha); m.SetFloat("_ZWrite", 0);
+            m.SetOverrideTag("RenderType", "Transparent"); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.EnableKeyword("_ALPHABLEND_ON"); m.renderQueue = 3000;
+            r.material = m;
         }
         void UpdateEffects()
         {
@@ -389,7 +395,7 @@ namespace LightsOut
             var p = race.Player; float W = UnityEngine.Screen.width, H = UnityEngine.Screen.height;
             // timing tower
             var order = race.Order(); int n = track.N;
-            GUILayout.BeginArea(new Rect(12, 12, 250, 34 + order.Count * 22), panel);
+            GUILayout.BeginArea(new Rect(12, 12, 250, 46 + order.Count * 27), panel);
             var lead = order[0]; GUILayout.Label("LAP " + Mathf.Min(race.Laps, Mathf.Max(1, lead.MaxLaps + 1)) + "/" + race.Laps, small);
             for (int i = 0; i < order.Count; i++)
             {
