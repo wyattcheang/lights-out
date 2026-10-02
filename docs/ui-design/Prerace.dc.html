@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grid and tyre choice</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,700&display=swap">
+<style>
+body{margin:0}
+button,input{font:inherit}
+a{color:#FFFFFF}a:hover{color:#A7ABB8}
+</style>
+</helmet>
+<div style="width: 1280px; height: 720px; box-sizing: border-box; background: #30343D; color: #FFFFFF; font-family: 'Titillium Web', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: #C9CCD6">3D GRID VIEW BEHIND</div>
+
+<div style="width: 800px; box-sizing: border-box; background: #14151A; border-top: 3px solid #E0241B; border-radius: 0 0 28px 0; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.12em; color: #A7ABB8">MELBOURNE · GRID</div>
+<div style="font-size: 40px; line-height: 1; font-weight: 700; font-style: italic">CHOOSE YOUR START TYRE</div>
+<div style="font-size: 15px; color: #A7ABB8">5 laps · two compounds required</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 64px; height: 64px; background: #FFFFFF; color: #14151A; border-radius: 0 0 14px 0; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 900">P6</div>
+<div style="font-size: 14px; color: #A7ABB8; line-height: 1.3">Grid slot<br>of 8 cars</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{tyres}}" as="t" hint-placeholder-count="3">
+<button style="box-sizing: border-box; height: 208px; padding: 18px 20px; background: {{t.bg}}; color: {{t.fg}}; border: 1px solid {{t.line}}; border-radius: 0 0 20px 0; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; text-align: left; cursor: pointer">
+<div style="display: flex; align-items: center; gap: 12px; align-self: stretch">
+<div style="width: 52px; height: 52px; box-sizing: border-box; border-radius: 50%; background: #14151A; border: 6px solid {{t.c}}; color: {{t.c}}; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900">{{t.k}}</div>
+<div style="flex-grow: 1; font-size: 24px; font-weight: 700; font-style: italic">{{t.name}}</div>
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em">{{t.tag}}</div>
+</div>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; gap: 24px; align-self: stretch; border-top: 1px solid {{t.rule}}; padding-top: 12px">
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: {{t.sub}}">LIFE</span>
+<span style="font-size: 22px; font-weight: 700">≈ {{t.life}} laps</span>
+</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: {{t.sub}}">GRIP</span>
+<span style="font-size: 22px; font-weight: 700">{{t.grip}}%</span>
+</div>
+</div>
+</button>
+</sc-for>
+</div>
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 24px">
+<div style="font-size: 14px; color: #A7ABB8">Change your next compound in the race with 1 / 2 / 3, box with P.</div>
+<button style="height: 56px; width: 280px; flex-shrink: 0; border: none; border-radius: 0 0 16px 0; background: #E0241B; color: #FFFFFF; font-size: 20px; font-weight: 700; font-style: italic; letter-spacing: 0.06em; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0 20px">
+<span>GO TO THE GRID</span>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+renderVals() {
+const raw = [['S', 'Soft', '#E8352E', '2.5', '104'], ['M', 'Medium', '#FFD12E', '4.0', '100'], ['H', 'Hard', '#F2F0EB', '5.8', '97']];
+const sel = 1;
+const tyres = raw.map((r, i) => ({ k: r[0], name: r[1], c: r[2], life: r[3], grip: r[4], tag: i === sel ? 'SELECTED' : '', bg: i === sel ? '#FFFFFF' : '#1D1F26', fg: i === sel ? '#14151A' : '#FFFFFF', line: i === sel ? '#FFFFFF' : '#353945', rule: i === sel ? '#C9CCD6' : '#353945', sub: i === sel ? '#4A4E5A' : '#A7ABB8' }));
+return { tyres };
+}
+}
+</script>
+</body>
+</html>
