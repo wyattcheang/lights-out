@@ -23,22 +23,22 @@ namespace LightsOut
             T = t; Root = new GameObject("Circuit " + t.Src.city);
             var r = Root.transform; float W = t.W, wd = t.WallD;
             BuildTerrain(r);
-            if (t.StreetCircuit) { Strip(r, "Verge+", W / 2 - .1f, .03f, wd + .2f, .03f, null, Visuals.Mat("asphalt", Color.white, Visuals.Asphalt), 8, 1); Strip(r, "Verge-", -W / 2 + .1f, .03f, -wd - .2f, .03f, null, Visuals.Mat("asphalt", Color.white, Visuals.Asphalt), 8, 1); }
+            if (t.StreetCircuit) { Strip(r, "Verge+", W / 2 - .1f, .03f, wd + .2f, .03f, null, Asphalt(), 8, 1); Strip(r, "Verge-", -W / 2 + .1f, .03f, -wd - .2f, .03f, null, Asphalt(), 8, 1); }
             else
             {
-                var run = Visuals.Mat("runoff", new Color(.8f, .8f, .82f), Visuals.Asphalt);
+                float rc = Look.Pick(1.25f, .3f); var run = Visuals.Mat("runoff", new Color(rc, rc, rc * 1.03f), Visuals.Asphalt, Look.Pick(.3f, .65f));
                 Strip(r, "Runoff+", W / 2 - .1f, .02f, W / 2 + 5, .02f, null, run, 8, 1); Strip(r, "Runoff-", -W / 2 + .1f, .02f, -W / 2 - 5, .02f, null, run, 8, 1);
-                var gv = Visuals.Mat("gravel", Color.white, Visuals.Gravel);
+                float gc = Look.Pick(.85f, .26f); var gv = Visuals.Mat("gravel", new Color(gc, gc, gc * 1.1f), Visuals.Gravel);
                 Strip(r, "Gravel+", W / 2 + 1.1f, .035f, W / 2 + 9, .035f, t.GravP, gv, 6, 2); Strip(r, "Gravel-", -W / 2 - 1.1f, .035f, -W / 2 - 9, .035f, t.GravN, gv, 6, 2);
             }
-            Strip(r, "Asphalt", -W / 2, .05f, W / 2, .05f, null, Visuals.Mat("asphalt", Color.white, Visuals.Asphalt), 8, W / 8);
-            var kerbM = Visuals.Mat("kerb", Color.white, Visuals.Kerb);
+            Strip(r, "Asphalt", -W / 2, .05f, W / 2, .05f, null, Asphalt(), 8, W / 8);
+            var kerbM = Visuals.Mat("kerb", Color.white, Visuals.Kerb, .5f, 0, false, null, Look.Hdr(Color.white, 1.7f));
             Strip(r, "Kerb+", W / 2 - .2f, .08f, W / 2 + 1.1f, .06f, t.Kerb, kerbM, 2, 1); Strip(r, "Kerb-", -W / 2 + .2f, .08f, -W / 2 - 1.1f, .06f, t.Kerb, kerbM, 2, 1);
-            var line = Visuals.Mat("line", new Color(.95f, .94f, .91f), null, .1f);
+            var line = LineM();
             Strip(r, "Line+", W / 2 - .55f, .07f, W / 2 - .25f, .07f, null, line, 8, 1); Strip(r, "Line-", -W / 2 + .55f, .07f, -W / 2 + .25f, .07f, null, line, 8, 1);
-            var bm = Visuals.Mat("barrier", Color.white, Visuals.Barrier); float bh = t.StreetCircuit ? 1.15f : 1.05f;
-            Strip(r, "Barrier+", wd, 0, wd, bh, t.WallP, bm, 20, 1, true); Strip(r, "Barrier-", -wd, 0, -wd, bh, t.WallN, bm, 20, 1, true);
-            var fm = Visuals.Mat("fence", Color.white, Visuals.Fence, 0, 0, true);
+            var bm = Visuals.Mat("barrier", Color.white, Visuals.Barrier, .55f, .2f, false, null, Look.Hdr(Color.white, 2f)); float bh = t.StreetCircuit ? 1.15f : 1.05f;
+            Strip(r, "Barrier+", wd, 0, wd, bh, t.WallP, bm, 30, 1, true); Strip(r, "Barrier-", -wd, 0, -wd, bh, t.WallN, bm, 30, 1, true);
+            var fm = Visuals.Mat("fence", Look.Pick(new Color(.8f, .82f, .86f), new Color(.7f, .8f, .9f)), Visuals.Fence, .3f, 0, true, null, Look.Hdr(new Color(.25f, .75f, .9f), .3f));
             Strip(r, "Fence+", wd + .05f, bh, wd + .05f, bh + 3.6f, t.WallP, fm, 4, 1, true); Strip(r, "Fence-", -wd - .05f, bh, -wd - .05f, bh + 3.6f, t.WallN, fm, 4, 1, true);
             BuildPitLane(r);
             BuildStart(r);
@@ -47,6 +47,11 @@ namespace LightsOut
             BuildScenery(r);
             BuildMap();
         }
+
+        // shared look-dependent materials
+        static Material Asphalt() { float c = Look.Pick(.78f, .55f); return Visuals.Mat("asphalt", new Color(c, c, c * 1.08f), Visuals.Asphalt, Look.Pick(.6f, .8f)); }
+        static Material LineM() { return Visuals.Mat("line", Look.Pick(new Color(.95f, .94f, .91f), new Color(.55f, .85f, .9f)), null, .3f, 0, false, null, Look.Hdr(Look.Cyan, .9f)); }
+        static Material RoofM() { return Visuals.Mat("roof", Look.Pick(new Color(.5f, .52f, .56f), new Color(.13f, .14f, .19f)), null, .6f, .3f); }
 
         // ---- ribbons along the track (lateral offsets o1/o2, heights y1/y2 above the centreline elevation) ----
         void Strip(Transform parent, string name, float o1, float y1, float o2, float y2, byte[] mask, Material m, float vLen, float uMax, bool vertical = false)
@@ -105,7 +110,7 @@ namespace LightsOut
                     tri.Add(a); tri.Add(c); tri.Add(b); tri.Add(b); tri.Add(c); tri.Add(d);
                 }
             // y is flipped in World(), so fix the winding to face up
-            var go = Visuals.MeshObject("Terrain", parent, v, uv, tri, Visuals.Mat(T.StreetCircuit ? "city" : "grass", Color.white, T.StreetCircuit ? Visuals.City : Visuals.Grass, .05f));
+            var go = Visuals.MeshObject("Terrain", parent, v, uv, tri, Visuals.Mat(T.StreetCircuit ? "city" : "grass", T.StreetCircuit ? Look.Pick(new Color(.8f, .82f, .86f), new Color(.2f, .2f, .26f)) : Look.Pick(new Color(.6f, .7f, .68f), new Color(.1f, .15f, .17f)), T.StreetCircuit ? Visuals.City : Visuals.Grass, T.StreetCircuit ? Look.Pick(.3f, .6f) : .05f));
             var mesh = go.GetComponent<MeshFilter>().sharedMesh; if (mesh.normals.Length > 0 && mesh.normals[0].y < 0) { var tr = mesh.triangles; for (int i = 0; i < tr.Length; i += 3) { int k = tr[i + 1]; tr[i + 1] = tr[i + 2]; tr[i + 2] = k; } mesh.triangles = tr; mesh.RecalculateNormals(); }
         }
         float MinNear(float x, float y, float r, float fallback)
@@ -129,13 +134,13 @@ namespace LightsOut
         void BuildPitLane(Transform r)
         {
             float lat0 = T.RL[T.Wrap(T.PE0)]; Func<float, float> pl = p => PitLat(p, lat0);
-            RibbonP(r, "PitLane", T.PE0, T.PX1, pl, -3.6f, 3.6f, .04f, .04f, Visuals.Mat("asphalt", Color.white, Visuals.Asphalt), 8);
-            var line = Visuals.Mat("line", new Color(.95f, .94f, .91f), null, .1f);
+            RibbonP(r, "PitLane", T.PE0, T.PX1, pl, -3.6f, 3.6f, .04f, .04f, Asphalt(), 8);
+            var line = LineM();
             RibbonP(r, "PitLine", T.PE0 + 4, T.PX1 - 4, pl, T.PS * 3.4f, T.PS * 3.6f, .06f, .06f, line, 8);
-            var box = Visuals.Mat("pitbox", new Color(1f, .82f, .12f), null, .1f);
+            var box = Visuals.Mat("pitbox", Look.Amber, null, .1f, 0, false, null, Look.Hdr(Look.Amber, 1.4f));
             for (int g = 0; g < 10; g++) { float bi = -44 + g * 6; RibbonP(r, "Box" + g, bi - 1, bi + 1, p => T.PitLat + T.PS * 1.6f, -.12f, .12f, .07f, .07f, box, 8); }
-            RibbonP(r, "Garages", T.PE1 + 2, T.PX0 - 2, p => T.PitLat + T.PS * 7.5f, 0, 0, 0, 7.5f, Visuals.Mat("garage", Color.white, Visuals.Garage), 48, true);
-            RibbonP(r, "PitRoof", T.PE1 + 2, T.PX0 - 2, p => T.PitLat, T.PS * 7.5f, T.PS * 24, 7.5f, 7.5f, Visuals.Mat("roof", new Color(.86f, .87f, .9f)), 10, true);
+            RibbonP(r, "Garages", T.PE1 + 2, T.PX0 - 2, p => T.PitLat + T.PS * 7.5f, 0, 0, 0, 7.5f, Visuals.Mat("garage", Color.white, Visuals.Garage, .5f, .2f, false, null, Look.Hdr(Color.white, 1.8f)), 48, true);
+            RibbonP(r, "PitRoof", T.PE1 + 2, T.PX0 - 2, p => T.PitLat, T.PS * 7.5f, T.PS * 24, 7.5f, 7.5f, RoofM(), 10, true);
         }
 
         void BuildStart(Transform r)
@@ -145,7 +150,7 @@ namespace LightsOut
             sl.transform.SetParent(r, false); sl.transform.position = Visuals.World(T.X[0], T.Y[0], T.E[0] + .09f);
             sl.transform.rotation = Visuals.Yaw(th0) * Quaternion.Euler(90, 0, 0); sl.transform.localScale = new Vector3(T.W, 1.8f, 1);
             sl.GetComponent<MeshRenderer>().sharedMaterial = Visuals.Mat("check", Color.white, Visuals.Check);
-            var gm = Visuals.Mat("line", new Color(.95f, .94f, .91f), null, .1f);
+            var gm = LineM();
             var tmp = new RaceSession { T = T };
             for (int s = 0; s < 10; s++)
             {
@@ -159,6 +164,9 @@ namespace LightsOut
             var steel = Visuals.Mat("steel", Visuals.Hex("#2b2f36"), null, .4f, .6f); float span = T.W + 5;
             Box(gan.transform, new Vector3(-span / 2, 3.8f, 0), new Vector3(.5f, 7.6f, .5f), steel, true); Box(gan.transform, new Vector3(span / 2, 3.8f, 0), new Vector3(.5f, 7.6f, .5f), steel, true);
             Box(gan.transform, new Vector3(0, 7.3f, 0), new Vector3(span + .6f, .9f, .7f), steel, true);
+            var neon = Visuals.Neon("neonCyan", Look.Cyan, 3f);
+            Box(gan.transform, new Vector3(0, 6.82f, -.36f), new Vector3(span + .6f, .06f, .03f), neon); Box(gan.transform, new Vector3(0, 7.78f, -.36f), new Vector3(span + .6f, .06f, .03f), neon);
+            foreach (float gx in new[] { -span / 2, span / 2 }) Box(gan.transform, new Vector3(gx, 3.8f, -.26f), new Vector3(.06f, 7.2f, .03f), Visuals.Neon("neonMagenta", Look.Magenta, 3f));
             for (int k = 0; k < 5; k++)
             {
                 Box(gan.transform, new Vector3((k - 2) * .9f, 6.2f, -.1f), new Vector3(.6f, 1.5f, .45f), Visuals.Mat("pod", Visuals.Hex("#111317")));
@@ -180,11 +188,11 @@ namespace LightsOut
             {
                 int i = b.I; float o = b.Side * (T.StreetCircuit ? T.WallD + .6f : T.W / 2 + 5.5f);
                 var tex = BoardTex(new[] { "300", "200", "100" }[b.K]);
-                var go = Box(r, Visuals.World(T.X[i] + T.NX[i] * o, T.Y[i] + T.NY[i] * o, T.E[i] + (T.StreetCircuit ? 2f : 1.6f)), new Vector3(1.2f, 1.5f, .05f), Visuals.Mat("board" + b.K, Color.white, tex));
+                var go = Box(r, Visuals.World(T.X[i] + T.NX[i] * o, T.Y[i] + T.NY[i] * o, T.E[i] + (T.StreetCircuit ? 2f : 1.6f)), new Vector3(1.2f, 1.5f, .05f), Visuals.Mat("board" + b.K, Color.white, tex, .3f, 0, false, null, Look.Hdr(Color.white, 1.6f)));
                 go.transform.rotation = Visuals.Yaw(T.Heading(i)) * Quaternion.Euler(0, 180, 0);
             }
             PostPanels = new Material[T.MS];
-            var hut = Visuals.Mat("post", Visuals.Hex("#f07a1a"));
+            var hut = Visuals.Mat("post", Look.Pick(Visuals.Hex("#c8651a"), Visuals.Hex("#231a14")), null, .4f);
             for (int s = 0; s < T.MS; s++)
             {
                 int i = (s * T.N / T.MS + 4) % T.N; int side = T.WallN[i] == 1 ? -1 : T.WallP[i] == 1 ? 1 : -1; float o = side * (T.WallD + 2.4f);
@@ -197,25 +205,29 @@ namespace LightsOut
         }
         static Texture2D BoardTex(string label)
         {
-            // simple 3/2/1 stripe boards (no font dependency): white board with black bars
+            // simple 3/2/1 stripe boards (no font dependency): dark board with amber light bars
             int bars = label == "300" ? 3 : label == "200" ? 2 : 1;
             var t = new Texture2D(64, 80); var px = new Color[64 * 80];
             for (int y = 0; y < 80; y++) for (int x = 0; x < 64; x++)
                 {
                     bool border = x < 4 || x > 59 || y < 4 || y > 75; bool bar = false;
                     for (int k = 0; k < bars; k++) { int c = (int)(32 + (k - (bars - 1) / 2f) * 14); if (x > c - 4 && x < c + 4 && y > 14 && y < 66) bar = true; }
-                    px[y * 64 + x] = border || bar ? Color.black : new Color(.96f, .95f, .93f);
+                    px[y * 64 + x] = border || bar ? Look.Amber : new Color(.03f, .035f, .05f);
                 }
             t.SetPixels(px); t.Apply(); return t;
         }
 
         void BuildStands(Transform r)
         {
-            var crowd = Visuals.Mat("crowd", Color.white, Visuals.Crowd); var roof = Visuals.Mat("roof", new Color(.86f, .87f, .9f));
+            float cc = Look.Pick(1f, .45f); var crowd = Visuals.Mat("crowd", new Color(cc, cc, cc), Visuals.Crowd, .1f, 0, false, null, Look.Hdr(Color.white, .6f)); var roof = RoofM();
+            var edge = Visuals.Neon("standEdge", Look.Cyan, 2.2f);
             Action<byte[], int> stand = (mask, sg) =>
             {
                 Strip(r, "Stand", sg * (T.WallD + 3), .8f, sg * (T.WallD + 16), 9, mask, crowd, 10, 1);
-                Strip(r, "StandRoof", sg * (T.WallD + 3), 12.5f, sg * (T.WallD + 12), 13f, mask, roof, 10, 1);
+                Strip(r, "StandRoof", sg * (T.WallD + 3), 12.5f, sg * (T.WallD + 12), 13f, mask, roof, 10, 1, true);   // two-sided: the roof is mostly seen from below
+                // light strips along the roof edge and the front of the first row
+                Strip(r, "StandLight", sg * (T.WallD + 3), 12.25f, sg * (T.WallD + 3), 12.5f, mask, edge, 10, 1, true);
+                Strip(r, "StandLight", sg * (T.WallD + 3), .55f, sg * (T.WallD + 3), .8f, mask, edge, 10, 1, true);
             };
             Func<int, int, int, byte[]> mk = (from, to, sg) =>
             {
@@ -235,7 +247,8 @@ namespace LightsOut
             var holder = new GameObject("Scenery"); holder.transform.SetParent(r, false);
             if (T.StreetCircuit)
             {
-                var mats = new[] { Visuals.Mat("bld0", Visuals.Hex("#a9b0b8")), Visuals.Mat("bld1", Visuals.Hex("#c8c2b6")), Visuals.Mat("bld2", Visuals.Hex("#8c939b")), Visuals.Mat("bld3", Visuals.Hex("#d9dde2")) };
+                string[] day = { "#6f767e", "#857f75", "#5c636b", "#8f949a" }, nightC = { "#0f1118", "#14121a", "#0b0d13", "#161820" }; var mats = new Material[4];
+                for (int q = 0; q < 4; q++) mats[q] = Visuals.Mat("bld" + q, Visuals.Hex(Look.Night ? nightC[q] : day[q]), null, .65f, .3f, false, new Vector2(2 + q, 3 + q * 2), Look.Hdr(Color.white, 1.4f), Visuals.Windows);
                 int k = 0;
                 for (int a = 0; a < 7000 && k < 420; a++)
                 {
@@ -247,8 +260,9 @@ namespace LightsOut
             }
             else
             {
-                var leaf = new[] { Visuals.Mat("leaf0", Visuals.Hex("#2f5a2a")), Visuals.Mat("leaf1", Visuals.Hex("#3d6b33")), Visuals.Mat("leaf2", Visuals.Hex("#4a7a3a")) };
-                var trunk = Visuals.Mat("trunk", Visuals.Hex("#4a3826"));
+                float lk = Look.Pick(.85f, .3f); Color lt = new Color(lk, lk * Look.Pick(.92f, 1f), lk * 1.25f);
+                var leaf = new[] { Visuals.Mat("leaf0", Visuals.Hex("#2f5a2a") * lt), Visuals.Mat("leaf1", Visuals.Hex("#3d6b33") * lt), Visuals.Mat("leaf2", Visuals.Hex("#4a7a3a") * lt) };
+                var trunk = Visuals.Mat("trunk", Visuals.Hex("#4a3826") * lt);
                 int k = 0;
                 for (int a = 0; a < 9000 && k < 900; a++)
                 {
@@ -272,7 +286,7 @@ namespace LightsOut
             for (int i = 0; i < T.N; i++)
             {
                 int x = (int)(12 + (T.X[i] - T.MinX) * sx), y = S - 1 - (int)(12 + (T.Y[i] - T.MinY) * sx);
-                for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) { int xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < S && yy < S) px[yy * S + xx] = new Color(.95f, .93f, .89f, .9f); }
+                for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) { int xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < S && yy < S) px[yy * S + xx] = new Color(Look.Cyan.r, Look.Cyan.g, Look.Cyan.b, .9f); }
             }
             MapTexture.SetPixels(px); MapTexture.Apply();
             MapScale = sx; MapSize = S;

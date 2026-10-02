@@ -19,8 +19,8 @@ namespace LightsOut
         {
             var root = new GameObject(name);
             var v = root.AddComponent<CarView>();
-            var mPaint = new Material(Visuals.Mat("paint", Color.white, null, .75f, .35f)); Visuals.SetColor(mPaint, paint);
-            var mAcc = new Material(Visuals.Mat("paint", Color.white, null, .75f, .35f)); Visuals.SetColor(mAcc, accent);
+            var mPaint = new Material(Visuals.Mat("paint", Color.white, null, .8f, .4f)); Visuals.SetColor(mPaint, paint);
+            var mAcc = new Material(Visuals.Mat("paint", Color.white, null, .8f, .4f)); Visuals.SetColor(mAcc, accent);
             var mCarbon = Visuals.Mat("carbon", new Color(.09f, .1f, .11f), null, .45f, .2f);
             var mTyre = Visuals.Mat("tyre", new Color(.07f, .07f, .07f), null, .1f);
             var mRim = Visuals.Mat("rim", new Color(.35f, .37f, .4f), null, .6f, .8f);
@@ -67,6 +67,15 @@ namespace LightsOut
             }
             v.RainLight = new Material(Visuals.Unlit("rainlight", new Color(.2f, 0, 0)));
             Part(root.transform, new Vector3(-2.63f, .5f, 0), new Vector3(.04f, .08f, .14f), v.RainLight);
+            // emissive-only lighting: headlight bars, tail light strips and a neon line along each floor edge
+            var mHead = Visuals.Neon("headlight", new Color(.8f, .95f, 1f), 3.5f); var mTail = Visuals.Neon("taillight", new Color(1f, .06f, .12f), 3.5f);
+            var mLine = Visuals.Neon(isPlayer ? "carlineP" : "carline", isPlayer ? Look.Magenta : Look.Cyan, 2.6f);
+            foreach (int s in new[] { -1, 1 })
+            {
+                Part(root.transform, new Vector3(3.06f, .12f, .6f * s), new Vector3(.02f, .03f, .5f), mHead);
+                Part(root.transform, new Vector3(-2.87f, .6f, .52f * s), new Vector3(.02f, .46f, .035f), mTail);
+                Part(root.transform, new Vector3(-.45f, .125f, .76f * s), new Vector3(3.5f, .02f, .02f), mLine);
+            }
             if (isPlayer)
             {
                 v.SteeringWheel = Pivot(root.transform, "SteeringWheel", new Vector3(.4f, .72f, 0));

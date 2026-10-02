@@ -16,7 +16,7 @@ namespace LightsOut.EditorTools
         const string ScenePath = "Assets/LightsOut/LightsOut.unity";
         const string SettingsDir = "Assets/LightsOut/Settings";
         const string RendererPath = SettingsDir + "/LightsOut_Renderer.asset", PipelinePath = SettingsDir + "/LightsOut_URP.asset";
-        static readonly string[] CodeShaders = { "Universal Render Pipeline/Unlit", "Universal Render Pipeline/Particles/Unlit" };
+        static readonly string[] CodeShaders = { "Universal Render Pipeline/Unlit", "Universal Render Pipeline/Particles/Unlit", "Skybox/Cubemap" };
 
         [MenuItem("Lights Out/Set Up Scene")]
         public static void SetUpScene()
@@ -61,6 +61,14 @@ namespace LightsOut.EditorTools
                 pipeline.supportsHDR = true; pipeline.shadowDistance = 400f; pipeline.msaaSampleCount = 4;
                 AssetDatabase.CreateAsset(pipeline, PipelinePath);
             }
+            // bloom, film grain and the other effects in Look.cs need the package's post-processing resources on the renderer
+            var rendererData = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(RendererPath);
+            if (rendererData != null && rendererData.postProcessData == null)
+            {
+                rendererData.postProcessData = AssetDatabase.LoadAssetAtPath<PostProcessData>("Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset");
+                EditorUtility.SetDirty(rendererData);
+            }
+            if (!pipeline.supportsHDR) { pipeline.supportsHDR = true; EditorUtility.SetDirty(pipeline); }
             GraphicsSettings.defaultRenderPipeline = pipeline;
             int level = QualitySettings.GetQualityLevel();
             for (int i = 0; i < QualitySettings.names.Length; i++) { QualitySettings.SetQualityLevel(i, false); QualitySettings.renderPipeline = pipeline; }

@@ -47,13 +47,8 @@ namespace LightsOut
         // ---------------- sessions ----------------
         void LoadTrack(int idx)
         {
-            trackIdx = idx; track = Track.Build(tracks[idx]); builder.Build(track);
-            bool night = track.NightRace;
-            RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogStartDistance = night ? 220 : 420; RenderSettings.fogEndDistance = night ? 1500 : 2800;
-            RenderSettings.fogColor = night ? new Color(.12f, .16f, .25f) : new Color(.83f, .86f, .88f);
-            sun.intensity = night ? .35f : 1.25f; sun.color = night ? new Color(.78f, .83f, 1f) : new Color(1f, .95f, .86f);
-            RenderSettings.ambientIntensity = night ? .7f : 1f;
-            rig.Cam.clearFlags = night ? CameraClearFlags.SolidColor : CameraClearFlags.Skybox; rig.Cam.backgroundColor = new Color(.02f, .03f, .06f);
+            trackIdx = idx; track = Track.Build(tracks[idx]);
+            Look.Apply(track.NightRace, sun, rig.Cam); builder.Build(track);
         }
         void NewRace(SessionMode mode, int field_, Compound tyre)
         {
@@ -194,21 +189,21 @@ namespace LightsOut
                 if (!(lockup || slide || dirt) || Random.value > .5f) continue;
                 var y = track.ElevAt(c.PF); var fwd = new Vector3(Mathf.Cos(c.H), 0, -Mathf.Sin(c.H)); var right = new Vector3(-fwd.z, 0, fwd.x);
                 var pos = Visuals.World(c.X, c.Y, y + .25f) + fwd * (lockup && !slide ? 1.55f : -1.8f);
-                var ep = new ParticleSystem.EmitParams { startColor = dirt ? (c.Surf == 3 ? new Color(.72f, .64f, .5f) : new Color(.42f, .5f, .3f)) : new Color(.86f, .86f, .88f), startSize = slide ? 1.4f : 1f, startLifetime = slide ? 2.2f : 1.3f };
+                float sk = Look.Pick(1f, .2f); var ep = new ParticleSystem.EmitParams { startColor = (dirt ? (c.Surf == 3 ? new Color(.72f, .64f, .5f) : new Color(.42f, .5f, .3f)) : new Color(.86f, .86f, .88f)) * new Color(sk, sk, sk * 1.3f, 1), startSize = slide ? 1.4f : 1f, startLifetime = slide ? 2.2f : 1.3f };
                 foreach (int s in new[] { -1, 1 }) { ep.position = pos + right * .85f * s; ep.velocity = new Vector3(c.VX * .25f, Random.Range(.3f, 1f), -c.VY * .25f); smoke.Emit(ep, 1); }
             }
         }
         void UpdateTrackside()
         {
             int lit = race.Mode == SessionMode.Race && !race.Started ? Mathf.Min(5, Mathf.FloorToInt(race.Time - .4f)) : 0;
-            for (int k = 0; k < 5; k++) if (builder.GantryLamps[k]) Visuals.SetColor(builder.GantryLamps[k], k < lit ? new Color(1, .1f, .04f) : new Color(.16f, .04f, .04f));
+            for (int k = 0; k < 5; k++) if (builder.GantryLamps[k]) Visuals.SetColor(builder.GantryLamps[k], k < lit ? Look.Hdr(new Color(1, .1f, .04f), 3.5f / Look.Glow) : new Color(.16f, .04f, .04f));
             if (builder.PostPanels != null)
             {
                 bool blink = ((int)(race.Time * 3)) % 2 == 0;
                 for (int s = 0; s < builder.PostPanels.Length; s++)
                 {
                     int lvl = race.Yel[s].Until > race.Time ? race.Yel[s].Level : 0; Color c = new Color(.07f, .07f, .07f);
-                    if (race.Neutral != null) c = new Color(1, .82f, .12f); else if (lvl == 2) c = blink ? new Color(1, .82f, .12f) : c; else if (lvl == 1) c = new Color(1, .82f, .12f); else if (race.Time < race.GreenUntil) c = new Color(.13f, .87f, .33f);
+                    if (race.Neutral != null) c = Look.Amber; else if (lvl == 2) c = blink ? Look.Amber : c; else if (lvl == 1) c = Look.Amber; else if (race.Time < race.GreenUntil) c = new Color(.13f, .87f, .33f);
                     Visuals.SetColor(builder.PostPanels[s], c);
                 }
             }
@@ -253,17 +248,36 @@ namespace LightsOut
         void Toast(string s) { toast = s; toastUntil = Time.time + 1.4f; }
 
         // ---------------- UI (IMGUI) ----------------
-        GUIStyle panel, h1, h2, label, small, mono, btn, btnOn, big; bool stylesReady;
+        GUIStyle panel, h1, h2, label, small, mono, row, rowMe, btn, btnOn, big, textBox; bool stylesReady; Font uiFont;
+        // the UI is laid out on a virtual 1080-pixel-high canvas and scaled to the window
+        const float UiH = 1080f; static float UiW { get { return UnityEngine.Screen.width * UiH / UnityEngine.Screen.height; } }
+        static Texture2D Frame(Color fill, Color edge)
+        {
+            var t = new Texture2D(8, 8, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point };
+            for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) t.SetPixel(x, y, x == 0 || y == 0 || x == 7 || y == 7 ? edge : fill);
+            t.Apply(); return t;
+        }
         void Styles()
         {
             if (stylesReady) return; stylesReady = true;
-            var bg = new Texture2D(1, 1); bg.SetPixel(0, 0, new Color(.05f, .06f, .07f, .88f)); bg.Apply();
-            panel = new GUIStyle(GUI.skin.box) { padding = new RectOffset(12, 12, 10, 10) }; panel.normal.background = bg;
-            h1 = new GUIStyle(GUI.skin.label) { fontSize = 40, fontStyle = FontStyle.Bold }; h1.normal.textColor = new Color(.95f, .93f, .89f);
-            h2 = new GUIStyle(h1) { fontSize = 22 }; label = new GUIStyle(GUI.skin.label) { fontSize = 15, wordWrap = true }; label.normal.textColor = new Color(.9f, .9f, .88f);
-            small = new GUIStyle(label) { fontSize = 12 }; small.normal.textColor = new Color(.6f, .62f, .66f);
-            mono = new GUIStyle(label) { fontSize = 15 }; big = new GUIStyle(h1) { fontSize = 52, alignment = TextAnchor.MiddleRight };
-            btn = new GUIStyle(GUI.skin.button) { fontSize = 15, fixedHeight = 32 }; btnOn = new GUIStyle(btn); btnOn.normal.textColor = new Color(1, .82f, .12f); btnOn.fontStyle = FontStyle.Bold;
+            Color cy = Look.Cyan, mg = Look.Magenta, text = new Color(.87f, .94f, .97f), dim = new Color(.5f, .68f, .76f);
+            uiFont = Font.CreateDynamicFontFromOSFont(new[] { "Menlo", "SF Mono", "Consolas", "Courier New" }, 16);
+            // dark glass with a thin cyan edge
+            panel = new GUIStyle(GUI.skin.box) { padding = new RectOffset(14, 14, 12, 12), border = new RectOffset(2, 2, 2, 2) };
+            panel.normal.background = Frame(new Color(5 / 255f, 6 / 255f, 13 / 255f, .78f), new Color(cy.r, cy.g, cy.b, .8f));
+            h1 = new GUIStyle(GUI.skin.label) { fontSize = 44, fontStyle = FontStyle.Bold }; h1.normal.textColor = cy;
+            h2 = new GUIStyle(h1) { fontSize = 24 }; h2.normal.textColor = text;
+            label = new GUIStyle(GUI.skin.label) { fontSize = 17, wordWrap = true }; label.normal.textColor = text;
+            small = new GUIStyle(label) { fontSize = 14 }; small.normal.textColor = dim;
+            mono = new GUIStyle(label) { font = uiFont, fontSize = 16, wordWrap = false };
+            row = new GUIStyle(mono) { fixedHeight = 22, margin = new RectOffset(0, 0, 0, 0) }; rowMe = new GUIStyle(row); rowMe.normal.textColor = mg;
+            big = new GUIStyle(h1) { font = uiFont, fontSize = 54, alignment = TextAnchor.MiddleRight }; big.normal.textColor = text;
+            var idle = Frame(new Color(.03f, .05f, .09f, .85f), new Color(cy.r, cy.g, cy.b, .35f)); var hot = Frame(new Color(0f, .2f, .25f, .9f), cy); var on = Frame(new Color(.2f, .02f, .17f, .9f), mg);
+            btn = new GUIStyle(GUI.skin.button) { fontSize = 16, fixedHeight = 34, border = new RectOffset(2, 2, 2, 2) };
+            btn.normal.background = idle; btn.hover.background = hot; btn.active.background = hot; btn.normal.textColor = text; btn.hover.textColor = Color.white; btn.active.textColor = Color.white;
+            btnOn = new GUIStyle(btn) { fontStyle = FontStyle.Bold }; btnOn.normal.background = on; btnOn.hover.background = on; btnOn.active.background = on; btnOn.normal.textColor = mg; btnOn.hover.textColor = mg; btnOn.active.textColor = mg;
+            textBox = new GUIStyle(GUI.skin.textField) { font = uiFont, fontSize = 16, fixedHeight = 28, border = new RectOffset(2, 2, 2, 2), alignment = TextAnchor.MiddleLeft };
+            textBox.normal.background = idle; textBox.hover.background = idle; textBox.focused.background = hot; textBox.normal.textColor = text; textBox.hover.textColor = text; textBox.focused.textColor = Color.white;
         }
         bool Seg(string[] options, ref int sel)
         {
@@ -275,6 +289,7 @@ namespace LightsOut
         void OnGUI()
         {
             Styles();
+            float ui = UnityEngine.Screen.height / UiH; GUI.matrix = Matrix4x4.Scale(new Vector3(ui, ui, 1));
             switch (screen)
             {
                 case Screen.Menu: DrawMenu(); break;
@@ -283,31 +298,31 @@ namespace LightsOut
                 case Screen.Results: DrawHud(); DrawResults(); break;
                 case Screen.Lobby: DrawLobby(); break;
             }
-            if (Time.time < toastUntil) GUI.Label(new Rect(0, UnityEngine.Screen.height * .28f, UnityEngine.Screen.width, 60), toast, new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter });
+            if (Time.time < toastUntil) GUI.Label(new Rect(0, UiH * .28f, UiW, 60), toast, new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter });
         }
 
         void DrawMenu()
         {
-            GUILayout.BeginArea(new Rect(16, 16, 400, UnityEngine.Screen.height - 32), panel);
+            GUILayout.BeginArea(new Rect(16, 16, 400, UiH - 32), panel);
             menuScroll = GUILayout.BeginScrollView(menuScroll);
             GUILayout.Label("LIGHTS OUT", h1);
             GUILayout.Label("Cockpit racing on 40 real circuits with measured elevation, 2026-style energy, tyre strategy, pit stops and race control.", small);
             GUILayout.Space(8);
-            var t = tracks[trackIdx]; GUILayout.Label(t.city + ", " + t.country, h2);
+            var t = tracks[trackIdx]; GUILayout.Label((t.city + ", " + t.country).ToUpperInvariant(), h2);
             GUILayout.Label((t.len / 1000f).ToString("0.000") + " km · opened " + t.opened + (Config.Street.Contains(t.id) ? " · street" : "") + (Config.Night.Contains(t.id) ? " · night" : ""), small);
-            GUILayout.Label("Session", small); Seg(new[] { "Race", "Time trial" }, ref modeIdx);
-            int lapSel = laps == 3 ? 0 : laps == 5 ? 1 : 2; GUILayout.Label("Race distance", small); if (Seg(new[] { "3 laps", "5 laps", "10 laps" }, ref lapSel)) laps = new[] { 3, 5, 10 }[lapSel];
-            int fieldSel = field == 6 ? 0 : field == 8 ? 1 : 2; GUILayout.Label("Grid size", small); if (Seg(new[] { "6", "8", "10" }, ref fieldSel)) field = new[] { 6, 8, 10 }[fieldSel];
-            GUILayout.Label("Opponents", small); Seg(new[] { "Rookie", "Pro", "Ace" }, ref diffIdx);
-            GUILayout.Label("Incidents", small); Seg(new[] { "Off", "Realistic", "Chaotic" }, ref incIdx);
-            int cam = (int)rig.Mode; GUILayout.Label("Camera", small); if (Seg(new[] { "Cockpit", "Chase", "Top-down" }, ref cam)) rig.Mode = (CamMode)cam;
+            GUILayout.Label("SESSION", small); Seg(new[] { "Race", "Time trial" }, ref modeIdx);
+            int lapSel = laps == 3 ? 0 : laps == 5 ? 1 : 2; GUILayout.Label("RACE DISTANCE", small); if (Seg(new[] { "3 laps", "5 laps", "10 laps" }, ref lapSel)) laps = new[] { 3, 5, 10 }[lapSel];
+            int fieldSel = field == 6 ? 0 : field == 8 ? 1 : 2; GUILayout.Label("GRID SIZE", small); if (Seg(new[] { "6", "8", "10" }, ref fieldSel)) field = new[] { 6, 8, 10 }[fieldSel];
+            GUILayout.Label("OPPONENTS", small); Seg(new[] { "Rookie", "Pro", "Ace" }, ref diffIdx);
+            GUILayout.Label("INCIDENTS", small); Seg(new[] { "Off", "Realistic", "Chaotic" }, ref incIdx);
+            int cam = (int)rig.Mode; GUILayout.Label("CAMERA", small); if (Seg(new[] { "Cockpit", "Chase", "Top-down" }, ref cam)) rig.Mode = (CamMode)cam;
             GUILayout.Space(6);
             if (GUILayout.Button(modeIdx == 0 ? "START RACE" : "START TIME TRIAL", new GUIStyle(btnOn) { fixedHeight = 44, fontSize = 20 })) StartSingle();
             GUILayout.Space(10); GUILayout.Label("RACE ONLINE", small);
-            GUILayout.BeginHorizontal(); GUILayout.Label("Name", small, GUILayout.Width(50)); nick = GUILayout.TextField(nick, 16); GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal(); GUILayout.Label("NAME", small, GUILayout.Width(50)); nick = GUILayout.TextField(nick, 16, textBox); GUILayout.EndHorizontal();
             GUI.enabled = !busy;
             GUILayout.BeginHorizontal(); if (GUILayout.Button("Host public room", btn)) HostRoom(false); if (GUILayout.Button("Host private room", btn)) HostRoom(true); GUILayout.EndHorizontal();
-            GUILayout.BeginHorizontal(); joinCode = GUILayout.TextField(joinCode, 8, GUILayout.Width(150)); if (GUILayout.Button("Join code", btn)) JoinRoom(joinCode, null); if (GUILayout.Button("Refresh", btn)) RefreshRooms(); GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal(); joinCode = GUILayout.TextField(joinCode, 8, textBox, GUILayout.Width(150)); if (GUILayout.Button("Join code", btn)) JoinRoom(joinCode, null); if (GUILayout.Button("Refresh", btn)) RefreshRooms(); GUILayout.EndHorizontal();
             foreach (var r in publicRooms) { GUILayout.BeginHorizontal(); GUILayout.Label(r.Name + "  (" + (r.MaxPlayers - r.AvailableSlots) + "/" + r.MaxPlayers + ")", label); if (GUILayout.Button("Join", btn, GUILayout.Width(70))) JoinRoom(null, r.Id); GUILayout.EndHorizontal(); }
             GUI.enabled = true;
             if (online.Status != "") GUILayout.Label(online.Status, small);
@@ -316,7 +331,7 @@ namespace LightsOut
             GUILayout.Label("Circuit outlines: bacinger/f1-circuits (MIT). Elevation from public F1 timing telemetry. Unofficial fan project; not affiliated with Formula One Licensing B.V. or the FIA.", small);
             GUILayout.EndScrollView(); GUILayout.EndArea();
             // circuit list
-            GUILayout.BeginArea(new Rect(UnityEngine.Screen.width - 316, 16, 300, UnityEngine.Screen.height - 32), panel);
+            GUILayout.BeginArea(new Rect(UiW - 316, 16, 300, UiH - 32), panel);
             trackScroll = GUILayout.BeginScrollView(trackScroll);
             for (int i = 0; i < tracks.Length; i++)
             {
@@ -328,9 +343,9 @@ namespace LightsOut
 
         void DrawPrerace()
         {
-            float w = 620, h = 260; GUILayout.BeginArea(new Rect((UnityEngine.Screen.width - w) / 2, (UnityEngine.Screen.height - h) / 2, w, h), panel);
+            float w = 620, h = 260; GUILayout.BeginArea(new Rect((UiW - w) / 2, (UiH - h) / 2, w, h), panel);
             var p = race.Player; bool isRace = race.Mode == SessionMode.Race;
-            GUILayout.Label(track.Src.city + (isRace ? " · Grid" : " · Time trial"), h2);
+            GUILayout.Label((track.Src.city + (isRace ? " · Grid" : " · Time trial")).ToUpperInvariant(), h2);
             GUILayout.Label(isRace ? "You start P" + (race.Cars.IndexOf(p) + 1) + " of " + race.Cars.Count + " · " + race.Laps + " laps · two compounds required" : "Pick tyres for a flying lap", small);
             int lapsN = Mathf.Max(3, isRace ? race.Laps : 6); GUILayout.BeginHorizontal();
             for (int k = 0; k < 3; k++)
@@ -348,21 +363,21 @@ namespace LightsOut
 
         void DrawLobby()
         {
-            float w = 640; GUILayout.BeginArea(new Rect((UnityEngine.Screen.width - w) / 2, 60, w, UnityEngine.Screen.height - 120), panel);
+            float w = 640; GUILayout.BeginArea(new Rect((UiW - w) / 2, 60, w, UiH - 120), panel);
             var s = online.Session;
-            GUILayout.Label("Room " + (s != null ? s.Code : "…"), h2);
+            GUILayout.Label("ROOM " + (s != null ? s.Code : "…"), h2);
             GUILayout.Label((net.IsHost ? "You are the host. " : "") + "Share the code with friends; public rooms also appear in everyone's room list.", small);
             if (s != null && GUILayout.Button("Copy code", btn, GUILayout.Width(120))) GUIUtility.systemCopyBuffer = s.Code;
-            GUILayout.Space(6); GUILayout.Label("Drivers", small);
+            GUILayout.Space(6); GUILayout.Label("DRIVERS", small);
             foreach (var p in net.Players) GUILayout.Label(p.Name + (p.Id == net.LocalId ? " (you)" : "") + "   " + Config.Tyres[p.Tyre].Name + "   " + (p.Ready ? "Ready" : "Not ready"), label);
-            GUILayout.Label("Your starting tyre", small); int ty = net.MyTyre; if (Seg(new[] { "Soft", "Medium", "Hard" }, ref ty)) { net.MyTyre = (byte)ty; net.SendHello(); }
+            GUILayout.Label("YOUR STARTING TYRE", small); int ty = net.MyTyre; if (Seg(new[] { "Soft", "Medium", "Hard" }, ref ty)) { net.MyTyre = (byte)ty; net.SendHello(); }
             if (net.IsHost)
             {
                 GUILayout.Label("Circuit: " + tracks[net.Cfg.Track].city, small);
                 GUILayout.BeginHorizontal(); if (GUILayout.Button("◀", btn, GUILayout.Width(40))) { net.Cfg.Track = (net.Cfg.Track + tracks.Length - 1) % tracks.Length; net.BroadcastLobby(); } if (GUILayout.Button("▶", btn, GUILayout.Width(40))) { net.Cfg.Track = (net.Cfg.Track + 1) % tracks.Length; net.BroadcastLobby(); } GUILayout.EndHorizontal();
-                int ls = net.Cfg.Laps == 3 ? 0 : net.Cfg.Laps == 5 ? 1 : 2; GUILayout.Label("Laps", small); if (Seg(new[] { "3", "5", "10" }, ref ls)) { net.Cfg.Laps = new[] { 3, 5, 10 }[ls]; net.BroadcastLobby(); }
-                int ai = net.Cfg.Ai == 0 ? 0 : net.Cfg.Ai == 3 ? 1 : 2; GUILayout.Label("AI cars", small); if (Seg(new[] { "0", "3", "6" }, ref ai)) { net.Cfg.Ai = new[] { 0, 3, 6 }[ai]; net.BroadcastLobby(); }
-                int inc = System.Array.IndexOf(Incs, net.Cfg.Incidents); GUILayout.Label("Incidents", small); if (Seg(new[] { "Off", "Realistic", "Chaotic" }, ref inc)) { net.Cfg.Incidents = Incs[inc]; net.BroadcastLobby(); }
+                int ls = net.Cfg.Laps == 3 ? 0 : net.Cfg.Laps == 5 ? 1 : 2; GUILayout.Label("LAPS", small); if (Seg(new[] { "3", "5", "10" }, ref ls)) { net.Cfg.Laps = new[] { 3, 5, 10 }[ls]; net.BroadcastLobby(); }
+                int ai = net.Cfg.Ai == 0 ? 0 : net.Cfg.Ai == 3 ? 1 : 2; GUILayout.Label("AI CARS", small); if (Seg(new[] { "0", "3", "6" }, ref ai)) { net.Cfg.Ai = new[] { 0, 3, 6 }[ai]; net.BroadcastLobby(); }
+                int inc = System.Array.IndexOf(Incs, net.Cfg.Incidents); GUILayout.Label("INCIDENTS", small); if (Seg(new[] { "Off", "Realistic", "Chaotic" }, ref inc)) { net.Cfg.Incidents = Incs[inc]; net.BroadcastLobby(); }
                 GUILayout.Space(8); if (GUILayout.Button("START RACE", new GUIStyle(btnOn) { fixedHeight = 42 })) net.HostStart();
             }
             else
@@ -376,7 +391,7 @@ namespace LightsOut
 
         void DrawResults()
         {
-            float w = 640; GUILayout.BeginArea(new Rect((UnityEngine.Screen.width - w) / 2, 80, w, UnityEngine.Screen.height - 160), panel);
+            float w = 640; GUILayout.BeginArea(new Rect((UiW - w) / 2, 80, w, UiH - 160), panel);
             var rows = race.Classification(); var me = rows.Find(r => r.Car.IsPlayer);
             GUILayout.Label(me != null && me.Status == "DSQ" ? "DISQUALIFIED" : me != null && me.Pos == 1 ? "RACE WINNER" : "P" + (me != null ? me.Pos : 0) + " FINISH", h2);
             float win = rows[0].Time;
@@ -392,21 +407,21 @@ namespace LightsOut
 
         void DrawHud()
         {
-            var p = race.Player; float W = UnityEngine.Screen.width, H = UnityEngine.Screen.height;
+            var p = race.Player; float W = UiW, H = UiH;
             // timing tower
             var order = race.Order(); int n = track.N;
-            GUILayout.BeginArea(new Rect(12, 12, 250, 46 + order.Count * 27), panel);
+            GUILayout.BeginArea(new Rect(12, 12, 270, 50 + order.Count * 22), panel);
             var lead = order[0]; GUILayout.Label("LAP " + Mathf.Min(race.Laps, Mathf.Max(1, lead.MaxLaps + 1)) + "/" + race.Laps, small);
             for (int i = 0; i < order.Count; i++)
             {
                 var c = order[i]; string gap = i == 0 ? "Leader" : c.Retired ? "DNF" : "+" + ((order[i - 1].PF - c.PF) * Config.Step / Config.GapSpeed).ToString("0.0");
                 string tag = c.Pit != null ? " PIT" : c.Penalty > 0 ? " +" + c.Penalty : c.OtActive ? " OT" : "";
-                GUILayout.Label((i + 1).ToString().PadRight(3) + c.Code.PadRight(5) + gap.PadRight(8) + Config.Tyres[(int)c.Tyre].Name.Substring(0, 1) + tag, c.IsPlayer ? new GUIStyle(mono) { normal = { textColor = new Color(1, .82f, .12f) } } : mono);
+                GUILayout.Label((i + 1).ToString().PadRight(3) + c.Code.PadRight(5) + gap.PadRight(8) + Config.Tyres[(int)c.Tyre].Name.Substring(0, 1) + tag, c.IsPlayer ? rowMe : row);
             }
             GUILayout.EndArea();
             // flags
             string flag = race.Neutral != null ? (race.Neutral.Type == "SC" ? (race.Neutral.Phase == "in" ? "SAFETY CAR IN THIS LAP" : "SAFETY CAR") : (race.Neutral.Phase == "ending" ? "VSC ENDING" : "VIRTUAL SAFETY CAR")) : p != null && p.Blue ? "BLUE FLAG" : p != null && race.SectorYellow(p.Idx) == 2 ? "DOUBLE YELLOW" : p != null && race.SectorYellow(p.Idx) == 1 ? "YELLOW FLAG" : race.Time < race.BlackWhiteUntil ? "BLACK AND WHITE FLAG" : race.Time < race.GreenUntil ? "GREEN FLAG" : "";
-            if (flag != "") GUI.Label(new Rect(W / 2 - 220, 14, 440, 40), flag, new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter, normal = { textColor = flag.StartsWith("GREEN") ? new Color(.2f, .85f, .45f) : flag.StartsWith("BLUE") ? new Color(.3f, .55f, 1f) : new Color(1, .82f, .12f) } });
+            if (flag != "") GUI.Label(new Rect(W / 2 - 220, 14, 440, 40), flag, new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter, normal = { textColor = flag.StartsWith("GREEN") ? new Color(.2f, .85f, .45f) : flag.StartsWith("BLUE") ? new Color(.3f, .55f, 1f) : Look.Amber } });
             if (race.Mode == SessionMode.Race && !race.Started) { int lit = Mathf.Min(5, Mathf.FloorToInt(race.Time - .4f)); GUI.Label(new Rect(W / 2 - 150, 60, 300, 40), new string('●', Mathf.Max(0, lit)) + new string('○', 5 - Mathf.Max(0, lit)), new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1, .2f, .15f) } }); }
             if (p == null) return;
             // lap box
@@ -419,10 +434,10 @@ namespace LightsOut
             GUILayout.BeginArea(new Rect(W / 2 - 220, H - 120, 440, 108), panel);
             GUILayout.BeginHorizontal();
             GUILayout.Label(Mathf.RoundToInt(Mathf.Abs(p.VF) * 3.6f).ToString(), big, GUILayout.Width(130));
-            GUILayout.Label(Gear(p), new GUIStyle(h1) { normal = { textColor = new Color(1, .82f, .12f) } }, GUILayout.Width(40));
+            GUILayout.Label(Gear(p), new GUIStyle(big) { alignment = TextAnchor.MiddleLeft, normal = { textColor = Look.Cyan } }, GUILayout.Width(40));
             GUILayout.BeginVertical();
             GUILayout.Label("Battery · " + (p.RechargeMode ? "Recharge" : "Balanced") + "   " + p.Soc.ToString("0.0") + " MJ", small);
-            var r = GUILayoutUtility.GetRect(200, 10); GUI.DrawTexture(r, Texture2D.grayTexture); GUI.DrawTexture(new Rect(r.x, r.y, r.width * Mathf.Clamp01(p.Soc / Config.ErsCap), r.height), Bar(p.OtActive ? new Color(.18f, .84f, .45f) : p.Boost && p.Dep > 0 ? new Color(1, .82f, .12f) : new Color(.23f, .63f, 1f)));
+            var r = GUILayoutUtility.GetRect(200, 10); GUI.DrawTexture(r, Texture2D.grayTexture); GUI.DrawTexture(new Rect(r.x, r.y, r.width * Mathf.Clamp01(p.Soc / Config.ErsCap), r.height), Bar(p.OtActive ? new Color(.18f, .84f, .45f) : p.Boost && p.Dep > 0 ? Look.Amber : Look.Cyan));
             GUILayout.Label((p.StraightMode ? "STRAIGHT MODE" : "Corner mode") + "   " + (p.Boost && p.Dep > 0 ? "BOOST" : "") + "   " + (p.OtActive ? "OVERTAKE ON" : p.OtArmed ? "OVERTAKE READY" : ""), small);
             GUILayout.EndVertical(); GUILayout.EndHorizontal(); GUILayout.EndArea();
             // tyres & pit
@@ -439,7 +454,7 @@ namespace LightsOut
             {
                 var mr = new Rect(W - 172, H - 172, 160, 160); GUI.DrawTexture(mr, builder.MapTexture);
                 float k = 160f / builder.MapSize;
-                foreach (var c in race.Cars) { if (c.Hidden) continue; var mp = builder.MapPoint(c.X, c.Y); GUI.DrawTexture(new Rect(mr.x + mp.x * k - 3, mr.y + mp.y * k - 3, 6, 6), Bar(c.IsPlayer ? new Color(1, .82f, .12f) : Visuals.Hex(c.Color))); }
+                foreach (var c in race.Cars) { if (c.Hidden) continue; var mp = builder.MapPoint(c.X, c.Y); GUI.DrawTexture(new Rect(mr.x + mp.x * k - 3, mr.y + mp.y * k - 3, 6, 6), Bar(c.IsPlayer ? Look.Magenta : Visuals.Hex(c.Color))); }
             }
             if (paused) GUI.Label(new Rect(0, H / 2 - 30, W, 60), "PAUSED  (Esc)", new GUIStyle(h1) { alignment = TextAnchor.MiddleCenter });
         }

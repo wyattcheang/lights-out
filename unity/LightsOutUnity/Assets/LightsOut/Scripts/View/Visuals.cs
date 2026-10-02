@@ -24,7 +24,11 @@ namespace LightsOut
             if (!urp) lit = Shader.Find("Standard");
         }
 
-        public static Material Mat(string key, Color color, Texture2D tex = null, float smooth = .2f, float metal = 0f, bool cutout = false, Vector2? tiling = null)
+        /// Drops cached materials so the next circuit is built for the current day/night look.
+        public static void ResetMaterials() { foreach (var m in cache.Values) if (m) Object.Destroy(m); cache.Clear(); }
+
+        /// 'emission' is an HDR colour (see Look.Hdr); it is multiplied by 'emissionMap', or by 'tex' when no map is given.
+        public static Material Mat(string key, Color color, Texture2D tex = null, float smooth = .2f, float metal = 0f, bool cutout = false, Vector2? tiling = null, Color? emission = null, Texture2D emissionMap = null)
         {
             Material m;
             if (cache.TryGetValue(key, out m)) return m;
@@ -34,6 +38,11 @@ namespace LightsOut
             else { m.SetColor("_Color", color); if (tex) m.SetTexture("_MainTex", tex); m.SetFloat("_Glossiness", smooth); }
             m.SetFloat("_Metallic", metal);
             if (tiling.HasValue) m.mainTextureScale = tiling.Value;
+            if (emission.HasValue)
+            {
+                m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", emission.Value); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+                var map = emissionMap ? emissionMap : tex; if (map) m.SetTexture("_EmissionMap", map);
+            }
             if (cutout)
             {
                 if (urp) { m.SetFloat("_AlphaClip", 1); m.SetFloat("_Cutoff", .3f); m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cull", 0); }
@@ -54,6 +63,9 @@ namespace LightsOut
             return m;
         }
 
+        /// Unlit neon: bright enough to bloom at night, toned down in daylight.
+        public static Material Neon(string key, Color color, float intensity) { float k = Mathf.Max(1f, intensity * Look.Glow); return Unlit(key, new Color(color.r * k, color.g * k, color.b * k, 1)); }
+
         public static void SetColor(Material m, Color c) { if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c); if (m.HasProperty("_Color")) m.SetColor("_Color", c); }
 
         // ---- textures ----
@@ -69,12 +81,13 @@ namespace LightsOut
         }
         static Color Speckle(Color a, float amt, System.Random r) { float k = 1f + ((float)r.NextDouble() - .5f) * amt; return new Color(a.r * k, a.g * k, a.b * k, 1); }
 
-        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff;
+        static Texture2D asphalt, grass, gravel, kerb, barrier, fence, crowd, garage, check, city, puff, windows;
         public static Texture2D Asphalt { get { if (!asphalt) { var r = new System.Random(1); var b = Hex("#55585e"); asphalt = Tex(256, 256, (x, y) => Speckle(b, .35f, r)); } return asphalt; } }
         public static Texture2D Grass { get { if (!grass) { var r = new System.Random(2); var b = Hex("#3c7136"); grass = Tex(256, 256, (x, y) => { var c = Speckle(b, .3f, r); return x < 128 ? c * 1.06f : c; }); } return grass; } }
         public static Texture2D City { get { if (!city) { var r = new System.Random(7); var b = Hex("#6c6f74"); city = Tex(256, 256, (x, y) => (x % 128 < 2 || y % 128 < 2) ? b * .8f : Speckle(b, .2f, r)); } return city; } }
         public static Texture2D Gravel { get { if (!gravel) { var r = new System.Random(3); var b = Hex("#b6a785"); gravel = Tex(256, 256, (x, y) => Speckle(b, .5f, r)); } return gravel; } }
-        public static Texture2D Kerb { get { if (!kerb) { var red = Hex("#d8322a"); var wht = Hex("#f3f0ea"); kerb = Tex(16, 64, (x, y) => y < 32 ? wht : red); } return kerb; } }
+        // neon kerbs: cyan and magenta blocks separated by dark gaps (v runs along the track)
+        public static Texture2D Kerb { get { if (!kerb) { var dark = Hex("#0b0d14"); kerb = Tex(16, 64, (x, y) => y < 16 ? Look.Cyan : y < 32 ? dark : y < 48 ? Look.Magenta : dark); } return kerb; } }
         public static Texture2D Puff { get { if (!puff) puff = Tex(32, 32, (x, y) => { float d = Mathf.Sqrt((x - 15.5f) * (x - 15.5f) + (y - 15.5f) * (y - 15.5f)) / 15.5f; return new Color(1, 1, 1, Mathf.Clamp01(1 - d) * Mathf.Clamp01(1 - d)); }, false); return puff; } }
         public static Texture2D Check { get { if (!check) check = Tex(64, 8, (x, y) => ((x / 4 + y / 4) % 2 == 0) ? Hex("#f2f0ea") : Hex("#111111")); return check; } }
         public static Texture2D Fence
@@ -89,29 +102,45 @@ namespace LightsOut
                 return fence;
             }
         }
-        static readonly string[][] Brands = { new[] { "#0d2a6b", "#ffffff" }, new[] { "#d8322a", "#ffffff" }, new[] { "#111111", "#ffd21f" }, new[] { "#ffffff", "#d8322a" }, new[] { "#0a6e5c", "#ffffff" }, new[] { "#ff8a1f", "#111111" } };
+        // dark panels with neon sponsor blocks; u runs up the wall, v along it. The top band is a continuous light strip.
+        static readonly string[][] Brands = { new[] { "#0a0d1a", "#00E5FF" }, new[] { "#140818", "#FF2BD6" }, new[] { "#0d0d10", "#FFB000" }, new[] { "#060a14", "#7CFFEA" }, new[] { "#12071c", "#B56BFF" }, new[] { "#05060d", "#FF2BD6" } };
         public static Texture2D Barrier
         {
             get
             {
-                if (!barrier) barrier = Tex(512, 64, (x, y) =>
+                if (!barrier) barrier = Tex(64, 384, (x, y) =>
                 {
-                    var br = Brands[(x / 128) % Brands.Length];
-                    if (y < 18) return ((x / 16) % 2 == 0) ? Hex("#d8322a") : Hex("#eeeae2");
-                    int lx = x % 128;
-                    if (y > 24 && y < 58 && lx > 3 && lx < 124) return (lx > 20 && lx < 108 && y > 34 && y < 48 && (lx / 6) % 2 == 0) ? Hex(br[1]) : Hex(br[0]);
-                    return Hex("#24272c");
+                    var br = Brands[(y / 64) % Brands.Length]; int ly = y % 64;
+                    if (x >= 59) return Look.Cyan;
+                    if (x < 6 || x > 54 || ly < 2 || ly > 61) return Hex("#07080d");
+                    return (x > 18 && x < 44 && ly > 10 && ly < 54 && (ly / 6) % 2 == 0) ? Hex(br[1]) : Hex(br[0]);
                 });
                 return barrier;
             }
         }
-        public static Texture2D Crowd { get { if (!crowd) { var r = new System.Random(5); string[] cs = { "#dd3333", "#ffdd22", "#2288ff", "#eeeeee", "#ff8800", "#22cc66", "#aa44ff", "#555555" }; crowd = Tex(256, 128, (x, y) => y % 16 < 3 ? Hex("#202329") : Hex(cs[r.Next(cs.Length)])); } return crowd; } }
+        // a calm crowd: mostly dark seats and clothing, with a few bright accents that glow at night
+        public static Texture2D Crowd { get { if (!crowd) { var r = new System.Random(5); string[] dark = { "#1d2027", "#262a33", "#30343d", "#3b3f48" }, acc = { "#00E5FF", "#FF2BD6", "#FFB000", "#e9edf2", "#7a8089" }; crowd = Tex(256, 128, (x, y) => y % 16 < 3 ? Hex("#14161b") : r.NextDouble() < .82 ? Hex(dark[r.Next(dark.Length)]) : Hex(acc[r.Next(acc.Length)])); } return crowd; } }
+        // pit garages: dark wall, darker door openings with a team-coloured light bar, and a cyan strip under the roof (u runs up, v along)
         public static Texture2D Garage
         {
             get
             {
-                if (!garage) { string[] cs = { "#e8322e", "#2f6bff", "#ff8a1f", "#13c4a3", "#c9ced6", "#7a3cff", "#ff4f9a", "#0b6b3a" }; garage = Tex(512, 128, (x, y) => { int i = x / 64, lx = x % 64; if (y > 108) return Hex("#1a1f27"); if (lx > 6 && lx < 58 && y < 86) return y > 78 ? Hex(cs[i % cs.Length]) : Hex("#2a2f37"); return Hex("#e9e7e1"); }); }
+                if (!garage) { string[] cs = { "#FF2BD6", "#00E5FF", "#FFB000", "#7CFFEA", "#B56BFF", "#FF5A3C", "#3D7BFF", "#39FF88" }; garage = Tex(128, 256, (x, y) => { int i = y / 32, ly = y % 32; if (x > 118) return Look.Cyan; if (ly > 3 && ly < 29 && x < 84) return x > 76 ? Hex(cs[i % cs.Length]) : Hex("#04050a"); return Hex("#12141b"); }); }
                 return garage;
+            }
+        }
+        // building windows for the emission map: mostly dark, a few lit in warm white, cyan or magenta
+        public static Texture2D Windows
+        {
+            get
+            {
+                if (!windows)
+                {
+                    var r = new System.Random(11); var lit = new Color[64];
+                    for (int i = 0; i < 64; i++) { double d = r.NextDouble(); lit[i] = d > .27 ? Color.black : d > .07 ? new Color(1f, .82f, .58f) : d > .035 ? Look.Cyan : Look.Magenta; }
+                    windows = Tex(64, 64, (x, y) => (x % 8 > 1 && x % 8 < 6 && y % 8 > 1 && y % 8 < 7) ? lit[(y / 8) * 8 + x / 8] : Color.black);
+                }
+                return windows;
             }
         }
 
