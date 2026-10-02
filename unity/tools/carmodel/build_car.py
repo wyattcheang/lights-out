@@ -12,9 +12,9 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', '..', 'web', 'src', 'carmodel.js')
+OUT = os.path.join(HERE, '..', '..', '..', 'web', 'src', 'carmodel.js')
 # triangle budgets: near body, mid body, far body, each wheel (Unity uses all levels; the web build keeps its lighter set)
-HI, MID, LO, WHEEL = (200000, 24000, 5000, 9000) if os.environ.get('CAR_JSON') else (24000, 0, 5000, 1400)       
+HI, MID, LO, WHEEL = (200000, 24000, 5000, 9000) if os.environ.get('CAR_JSON') else (24000, 0, 5000, 1400)
 FRONT_AXLE_X = 1.55                        # matches the old procedural car and the cockpit camera
 
 
