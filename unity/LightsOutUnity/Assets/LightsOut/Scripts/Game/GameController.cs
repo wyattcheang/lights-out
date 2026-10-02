@@ -256,37 +256,42 @@ namespace LightsOut
 
         void Toast(string s) { toast = s; toastUntil = Time.time + 1.4f; }
 
-        // ---------------- UI (IMGUI) ----------------
-        GUIStyle panel, h1, h2, label, small, mono, row, rowMe, btn, btnOn, big, textBox; bool stylesReady; Font uiFont;
+        // ---------------- UI (IMGUI, drawn with UiKit) ----------------
+        GUIStyle h2, label, small, note, btn, btnOn, btnPrimary, btnList, btnListOn, card, cardOn, textBox; bool stylesReady;
         // the UI is laid out on a virtual 1080-pixel-high canvas and scaled to the window
         const float UiH = 1080f; static float UiW { get { return UnityEngine.Screen.width * UiH / UnityEngine.Screen.height; } }
-        static Texture2D Frame(Color fill, Color edge)
+        static void States(GUIStyle s, Texture2D idle, Texture2D hot, Color text, Color textHot)
         {
-            var t = new Texture2D(8, 8, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point };
-            for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) t.SetPixel(x, y, x == 0 || y == 0 || x == 7 || y == 7 ? edge : fill);
-            t.Apply(); return t;
+            s.normal.background = idle; s.hover.background = hot; s.active.background = hot; s.focused.background = hot;
+            s.normal.textColor = text; s.hover.textColor = textHot; s.active.textColor = textHot; s.focused.textColor = textHot;
         }
         void Styles()
         {
             if (stylesReady) return; stylesReady = true;
-            Color cy = Look.Cyan, mg = Look.Magenta, text = new Color(.87f, .94f, .97f), dim = new Color(.5f, .68f, .76f);
-            uiFont = Font.CreateDynamicFontFromOSFont(new[] { "Menlo", "SF Mono", "Consolas", "Courier New" }, 16);
-            // dark glass with a thin cyan edge
-            panel = new GUIStyle(GUI.skin.box) { padding = new RectOffset(14, 14, 12, 12), border = new RectOffset(2, 2, 2, 2) };
-            panel.normal.background = Frame(new Color(5 / 255f, 6 / 255f, 13 / 255f, .78f), new Color(cy.r, cy.g, cy.b, .8f));
-            h1 = new GUIStyle(GUI.skin.label) { fontSize = 44, fontStyle = FontStyle.Bold }; h1.normal.textColor = cy;
-            h2 = new GUIStyle(h1) { fontSize = 24 }; h2.normal.textColor = text;
-            label = new GUIStyle(GUI.skin.label) { fontSize = 17, wordWrap = true }; label.normal.textColor = text;
-            small = new GUIStyle(label) { fontSize = 14 }; small.normal.textColor = dim;
-            mono = new GUIStyle(label) { font = uiFont, fontSize = 16, wordWrap = false };
-            row = new GUIStyle(mono) { fixedHeight = 22, margin = new RectOffset(0, 0, 0, 0) }; rowMe = new GUIStyle(row); rowMe.normal.textColor = mg;
-            big = new GUIStyle(h1) { font = uiFont, fontSize = 54, alignment = TextAnchor.MiddleRight }; big.normal.textColor = text;
-            var idle = Frame(new Color(.03f, .05f, .09f, .85f), new Color(cy.r, cy.g, cy.b, .35f)); var hot = Frame(new Color(0f, .2f, .25f, .9f), cy); var on = Frame(new Color(.2f, .02f, .17f, .9f), mg);
-            btn = new GUIStyle(GUI.skin.button) { fontSize = 16, fixedHeight = 34, border = new RectOffset(2, 2, 2, 2) };
-            btn.normal.background = idle; btn.hover.background = hot; btn.active.background = hot; btn.normal.textColor = text; btn.hover.textColor = Color.white; btn.active.textColor = Color.white;
-            btnOn = new GUIStyle(btn) { fontStyle = FontStyle.Bold }; btnOn.normal.background = on; btnOn.hover.background = on; btnOn.active.background = on; btnOn.normal.textColor = mg; btnOn.hover.textColor = mg; btnOn.active.textColor = mg;
-            textBox = new GUIStyle(GUI.skin.textField) { font = uiFont, fontSize = 16, fixedHeight = 28, border = new RectOffset(2, 2, 2, 2), alignment = TextAnchor.MiddleLeft };
-            textBox.normal.background = idle; textBox.hover.background = idle; textBox.focused.background = hot; textBox.normal.textColor = text; textBox.hover.textColor = text; textBox.focused.textColor = Color.white;
+            Color cy = Look.Cyan, mg = Look.Magenta, text = UiKit.Text, none = new Color(0, 0, 0, 0);
+            h2 = new GUIStyle { font = UiKit.Head, fontSize = 30, fontStyle = FontStyle.Bold }; h2.normal.textColor = text;
+            label = new GUIStyle { font = UiKit.Head, fontSize = 18, wordWrap = true, richText = true }; label.normal.textColor = text;
+            small = new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, margin = new RectOffset(2, 0, 12, 4) }; small.normal.textColor = UiKit.Dim;
+            note = new GUIStyle(label) { fontSize = 14 }; note.normal.textColor = UiKit.Faint;
+            btn = new GUIStyle { font = UiKit.Head, fontSize = 18, fixedHeight = 38, alignment = TextAnchor.MiddleCenter, border = new RectOffset(11, 11, 11, 11), margin = new RectOffset(3, 3, 3, 3), padding = new RectOffset(12, 12, 0, 0), richText = true };
+            States(btn, UiKit.Round9(new Color(1, 1, 1, .075f), none), UiKit.Round9(new Color(1, 1, 1, .17f), none), text, Color.white);
+            btnOn = new GUIStyle(btn) { fontStyle = FontStyle.Bold };
+            States(btnOn, UiKit.Round9(new Color(cy.r, cy.g, cy.b, .95f), none), UiKit.Round9(new Color(.55f, .95f, 1f, 1f), none), UiKit.Ink, UiKit.Ink);
+            btnPrimary = new GUIStyle(btn) { fontSize = 26, fixedHeight = 60, fontStyle = FontStyle.Bold, margin = new RectOffset(3, 3, 14, 6) };
+            States(btnPrimary, UiKit.Round9(mg, none, 12, new Color(.48f, .26f, 1f)), UiKit.Round9(new Color(1f, .42f, .88f), none, 12, new Color(.62f, .42f, 1f)), Color.white, Color.white);
+            btnList = new GUIStyle(btn) { alignment = TextAnchor.MiddleLeft, fixedHeight = 34, fontSize = 17, margin = new RectOffset(0, 6, 1, 1), padding = new RectOffset(14, 8, 0, 0) };
+            States(btnList, UiKit.Round9(new Color(1, 1, 1, .025f), none, 7), UiKit.Round9(new Color(1, 1, 1, .13f), none, 7), text, Color.white);
+            btnListOn = new GUIStyle(btnList) { fontStyle = FontStyle.Bold };
+            var sel = UiKit.Round9(new Color(mg.r, mg.g, mg.b, .5f), none, 7, new Color(mg.r, mg.g, mg.b, .08f)); States(btnListOn, sel, sel, Color.white, Color.white);
+            card = new GUIStyle(btn) { fixedHeight = 132, alignment = TextAnchor.LowerCenter, padding = new RectOffset(8, 8, 8, 14), fontSize = 17 };
+            States(card, UiKit.Round9(new Color(1, 1, 1, .06f), new Color(1, 1, 1, .1f), 12), UiKit.Round9(new Color(1, 1, 1, .14f), new Color(1, 1, 1, .2f), 12), text, Color.white);
+            cardOn = new GUIStyle(card); var con = UiKit.Round9(new Color(cy.r, cy.g, cy.b, .16f), cy, 12); States(cardOn, con, con, Color.white, Color.white);
+            textBox = new GUIStyle(GUI.skin.textField) { font = UiKit.Head, fontSize = 18, fixedHeight = 36, border = new RectOffset(11, 11, 11, 11), padding = new RectOffset(12, 12, 0, 0), margin = new RectOffset(3, 3, 3, 3), alignment = TextAnchor.MiddleLeft };
+            States(textBox, UiKit.Round9(new Color(0, 0, 0, .35f), new Color(1, 1, 1, .16f)), UiKit.Round9(new Color(0, 0, 0, .45f), cy), text, Color.white);
+            // slim scrollbars without arrow buttons
+            var sb = GUI.skin.verticalScrollbar; sb.fixedWidth = 6; sb.normal.background = UiKit.Round9(new Color(1, 1, 1, .05f), none, 3); sb.border = new RectOffset(3, 3, 3, 3);
+            var th = GUI.skin.verticalScrollbarThumb; th.fixedWidth = 6; th.border = new RectOffset(3, 3, 3, 3); States(th, UiKit.Round9(new Color(1, 1, 1, .28f), none, 3), UiKit.Round9(new Color(1, 1, 1, .5f), none, 3), text, text);
+            GUI.skin.verticalScrollbarUpButton.fixedHeight = 0; GUI.skin.verticalScrollbarDownButton.fixedHeight = 0;
         }
         bool Seg(string[] options, ref int sel)
         {
@@ -294,6 +299,8 @@ namespace LightsOut
             for (int i = 0; i < options.Length; i++) if (GUILayout.Button(options[i], i == sel ? btnOn : btn)) sel = i;
             GUILayout.EndHorizontal(); return old != sel;
         }
+        static Color TyreColor(Compound c) { var t = Config.Tyres[(int)c]; return new Color(t.R, t.G, t.B); }
+        static string TyreLetter(Compound c) { return Config.Tyres[(int)c].Name.Substring(0, 1); }
 
         void OnGUI()
         {
@@ -307,63 +314,82 @@ namespace LightsOut
                 case Screen.Results: DrawHud(); DrawResults(); break;
                 case Screen.Lobby: DrawLobby(); break;
             }
-            if (Time.time < toastUntil) GUI.Label(new Rect(0, UiH * .28f, UiW, 60), toast, new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter });
+            if (Time.time < toastUntil) { var tr = new Rect(UiW / 2 - 200, UiH * .26f, 400, 48); UiKit.Fill(tr, UiKit.Glass, 24); UiKit.Label(tr, toast.ToUpperInvariant(), 20, UiKit.Text, TextAnchor.MiddleCenter, false, true); }
         }
 
         void DrawMenu()
         {
-            GUILayout.BeginArea(new Rect(16, 16, 400, UiH - 32), panel);
-            menuScroll = GUILayout.BeginScrollView(menuScroll);
-            GUILayout.Label("LIGHTS OUT", h1);
-            GUILayout.Label("Cockpit racing on 40 real circuits with measured elevation, 2026-style energy, tyre strategy, pit stops and race control.", small);
-            GUILayout.Space(8);
-            var t = tracks[trackIdx]; GUILayout.Label((t.city + ", " + t.country).ToUpperInvariant(), h2);
-            GUILayout.Label((t.len / 1000f).ToString("0.000") + " km · opened " + t.opened + (Config.Street.Contains(t.id) ? " · street" : "") + (Config.Night.Contains(t.id) ? " · night" : ""), small);
+            var left = new Rect(36, 36, 470, UiH - 72); UiKit.Panel(left, 18, .88f);
+            GUILayout.BeginArea(new Rect(left.x + 28, left.y + 20, left.width - 44, left.height - 40));
+            menuScroll = GUILayout.BeginScrollView(menuScroll, GUIStyle.none, GUI.skin.verticalScrollbar);
+            GUILayout.BeginVertical(GUILayout.Width(left.width - 66));
+            var wr = GUILayoutUtility.GetRect(380, 96);
+            UiKit.Label(new Rect(wr.x, wr.y, wr.width, 78), "LIGHTS <color=#FF2BD6>OUT</color>", 74, UiKit.Text, TextAnchor.MiddleLeft, true, true);
+            UiKit.Accent(new Rect(wr.x, wr.y + 82, 320, 3), Look.Cyan);
+            GUILayout.Label("Cockpit racing on 40 real circuits with measured elevation, 2026-style energy, tyre strategy, pit stops and race control.", note);
+            GUILayout.Space(10);
+            // circuit card with the track outline
+            var t = tracks[trackIdx]; var cr = GUILayoutUtility.GetRect(380, 132);
+            UiKit.Fill(cr, new Color(1, 1, 1, .055f), 12); UiKit.Fill(new Rect(cr.x, cr.y + 16, 3, cr.height - 32), Look.Cyan, 1.5f);
+            UiKit.Label(new Rect(cr.x + 20, cr.y + 14, cr.width - 150, 38), t.city.ToUpperInvariant(), 32, UiKit.Text, TextAnchor.MiddleLeft, false, true);
+            UiKit.Label(new Rect(cr.x + 20, cr.y + 50, cr.width - 150, 22), t.country.ToUpperInvariant(), 15, UiKit.Dim, TextAnchor.MiddleLeft, false, true);
+            UiKit.Label(new Rect(cr.x + 20, cr.y + 78, 120, 34), (t.len / 1000f).ToString("0.000"), 28, UiKit.Text, TextAnchor.MiddleLeft, true);
+            UiKit.Label(new Rect(cr.x + 104, cr.y + 86, 40, 22), "KM", 13, UiKit.Dim, TextAnchor.MiddleLeft, false, true);
+            float px = cr.x + 146; UiKit.Pill(new Rect(px, cr.y + 84, 58, 22), t.opened.ToString(), new Color(1, 1, 1, .1f), UiKit.Text); px += 64;
+            if (Config.Street.Contains(t.id)) { UiKit.Pill(new Rect(px, cr.y + 84, 66, 22), "STREET", new Color(1, 1, 1, .1f), UiKit.Text); px += 72; }
+            if (Config.Night.Contains(t.id)) UiKit.Pill(new Rect(px, cr.y + 84, 58, 22), "NIGHT", Look.Magenta, Color.white);
+            if (builder.MapTexture) UiKit.Tex(new Rect(cr.xMax - 136, cr.y + 2, 128, 128), builder.MapTexture, Color.white);
+
             GUILayout.Label("SESSION", small); Seg(new[] { "Race", "Time trial" }, ref modeIdx);
             int lapSel = laps == 3 ? 0 : laps == 5 ? 1 : 2; GUILayout.Label("RACE DISTANCE", small); if (Seg(new[] { "3 laps", "5 laps", "10 laps" }, ref lapSel)) laps = new[] { 3, 5, 10 }[lapSel];
             int fieldSel = field == 6 ? 0 : field == 8 ? 1 : 2; GUILayout.Label("GRID SIZE", small); if (Seg(new[] { "6", "8", "10" }, ref fieldSel)) field = new[] { 6, 8, 10 }[fieldSel];
             GUILayout.Label("OPPONENTS", small); Seg(new[] { "Rookie", "Pro", "Ace" }, ref diffIdx);
             GUILayout.Label("INCIDENTS", small); Seg(new[] { "Off", "Realistic", "Chaotic" }, ref incIdx);
             int cam = (int)rig.Mode; GUILayout.Label("CAMERA", small); if (Seg(new[] { "Cockpit", "Chase", "Top-down" }, ref cam)) rig.Mode = (CamMode)cam;
-            GUILayout.Space(6);
-            if (GUILayout.Button(modeIdx == 0 ? "START RACE" : "START TIME TRIAL", new GUIStyle(btnOn) { fixedHeight = 44, fontSize = 20 })) StartSingle();
-            GUILayout.Space(10); GUILayout.Label("RACE ONLINE", small);
-            GUILayout.BeginHorizontal(); GUILayout.Label("NAME", small, GUILayout.Width(50)); nick = GUILayout.TextField(nick, 16, textBox); GUILayout.EndHorizontal();
+            if (GUILayout.Button(modeIdx == 0 ? "START RACE" : "START TIME TRIAL", btnPrimary)) StartSingle();
+
+            GUILayout.Label("RACE ONLINE", small);
+            GUILayout.BeginHorizontal(); nick = GUILayout.TextField(nick, 16, textBox); GUILayout.EndHorizontal();
             GUI.enabled = !busy;
             GUILayout.BeginHorizontal(); if (GUILayout.Button("Host public room", btn)) HostRoom(false); if (GUILayout.Button("Host private room", btn)) HostRoom(true); GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal(); joinCode = GUILayout.TextField(joinCode, 8, textBox, GUILayout.Width(150)); if (GUILayout.Button("Join code", btn)) JoinRoom(joinCode, null); if (GUILayout.Button("Refresh", btn)) RefreshRooms(); GUILayout.EndHorizontal();
             foreach (var r in publicRooms) { GUILayout.BeginHorizontal(); GUILayout.Label(r.Name + "  (" + (r.MaxPlayers - r.AvailableSlots) + "/" + r.MaxPlayers + ")", label); if (GUILayout.Button("Join", btn, GUILayout.Width(70))) JoinRoom(null, r.Id); GUILayout.EndHorizontal(); }
             GUI.enabled = true;
-            if (online.Status != "") GUILayout.Label(online.Status, small);
-            GUILayout.Space(8);
-            GUILayout.Label("Keys: arrows/WASD drive · B boost · O overtake · E energy map · P box · 1/2/3 next tyre · C camera · Esc pause. Gamepad: triggers, left stick, X boost.", small);
-            GUILayout.Label("Circuit outlines: bacinger/f1-circuits (MIT). Car model: \"F1 2026 concept\" by Qvist_designs (CC BY 4.0), simplified. Elevation from public F1 timing telemetry. Unofficial fan project; not affiliated with Formula One Licensing B.V. or the FIA.", small);
-            GUILayout.EndScrollView(); GUILayout.EndArea();
+            if (online.Status != "") GUILayout.Label(online.Status, note);
+            GUILayout.Space(10);
+            GUILayout.Label("Keys: arrows/WASD drive · B boost · O overtake · E energy map · P box · 1/2/3 next tyre · C camera · Esc pause. Gamepad: triggers, left stick, X boost.", note);
+            GUILayout.Label("Circuit outlines: bacinger/f1-circuits (MIT). Car model: \"F1 2026 concept\" by Qvist_designs (CC BY 4.0), simplified. Elevation from public F1 timing telemetry. Unofficial fan project; not affiliated with Formula One Licensing B.V. or the FIA.", note);
+            GUILayout.EndVertical(); GUILayout.EndScrollView(); GUILayout.EndArea();
+
             // circuit list
-            GUILayout.BeginArea(new Rect(UiW - 316, 16, 300, UiH - 32), panel);
-            trackScroll = GUILayout.BeginScrollView(trackScroll);
+            var right = new Rect(UiW - 36 - 340, 36, 340, UiH - 72); UiKit.Panel(right, 18, .88f);
+            GUILayout.BeginArea(new Rect(right.x + 16, right.y + 12, right.width - 26, right.height - 24));
+            trackScroll = GUILayout.BeginScrollView(trackScroll, GUIStyle.none, GUI.skin.verticalScrollbar);
             for (int i = 0; i < tracks.Length; i++)
             {
                 if (i == 0) GUILayout.Label("CURRENT CALENDAR", small); if (i > 0 && tracks[i].cur != tracks[i - 1].cur) GUILayout.Label("PAST VENUES", small);
-                if (GUILayout.Button(tracks[i].city + "  ·  " + tracks[i].country, i == trackIdx ? btnOn : btn)) { trackIdx = i; StartAttract(); }
+                if (GUILayout.Button(tracks[i].city + "  <color=#8a96a6><size=14>" + tracks[i].country.ToUpperInvariant() + "</size></color>", i == trackIdx ? btnListOn : btnList)) { trackIdx = i; StartAttract(); }
             }
             GUILayout.EndScrollView(); GUILayout.EndArea();
         }
 
         void DrawPrerace()
         {
-            float w = 620, h = 260; GUILayout.BeginArea(new Rect((UiW - w) / 2, (UiH - h) / 2, w, h), panel);
+            float w = 760, h = 336; var box = new Rect((UiW - w) / 2, (UiH - h) / 2 - 60, w, h); UiKit.Panel(box, 18, .93f);
             var p = race.Player; bool isRace = race.Mode == SessionMode.Race;
-            GUILayout.Label((track.Src.city + (isRace ? " · Grid" : " · Time trial")).ToUpperInvariant(), h2);
-            GUILayout.Label(isRace ? "You start P" + (race.Cars.IndexOf(p) + 1) + " of " + race.Cars.Count + " · " + race.Laps + " laps · two compounds required" : "Pick tyres for a flying lap", small);
+            UiKit.Label(new Rect(box.x + 32, box.y + 22, w - 64, 40), (track.Src.city + (isRace ? "  ·  GRID" : "  ·  TIME TRIAL")).ToUpperInvariant(), 32, UiKit.Text, TextAnchor.MiddleLeft, false, true);
+            UiKit.Accent(new Rect(box.x + 32, box.y + 66, 260, 3), Look.Cyan);
+            UiKit.Label(new Rect(box.x + 32, box.y + 76, w - 64, 26), isRace ? "You start P" + (race.Cars.IndexOf(p) + 1) + " of " + race.Cars.Count + "  ·  " + race.Laps + " laps  ·  two compounds required" : "Pick tyres for a flying lap", 17, UiKit.Dim);
+            GUILayout.BeginArea(new Rect(box.x + 26, box.y + 112, w - 52, h - 124));
             int lapsN = Mathf.Max(3, isRace ? race.Laps : 6); GUILayout.BeginHorizontal();
             for (int k = 0; k < 3; k++)
             {
                 var ts = Config.Tyres[k];
-                if (GUILayout.Button(ts.Name + "\n≈ " + (ts.Life * lapsN).ToString("0.0") + " laps · grip " + Mathf.RoundToInt(ts.Grip * 100) + "%", (int)startTyre == k ? new GUIStyle(btnOn) { fixedHeight = 70 } : new GUIStyle(btn) { fixedHeight = 70 })) startTyre = (Compound)k;
+                if (GUILayout.Button("<b><size=22>" + ts.Name.ToUpperInvariant() + "</size></b>\n<color=#8a96a6>≈ " + (ts.Life * lapsN).ToString("0.0") + " laps  ·  grip " + Mathf.RoundToInt(ts.Grip * 100) + "%</color>", (int)startTyre == k ? cardOn : card)) startTyre = (Compound)k;
+                var lr = GUILayoutUtility.GetLastRect(); UiKit.TyreRing(new Rect(lr.center.x - 24, lr.y + 14, 48, 48), TyreColor((Compound)k), TyreLetter((Compound)k));
             }
-            GUILayout.EndHorizontal(); GUILayout.Space(10);
-            if (GUILayout.Button("Go to the grid", new GUIStyle(btnOn) { fixedHeight = 40 }))
+            GUILayout.EndHorizontal();
+            if (GUILayout.Button("GO TO THE GRID", btnPrimary))
             {
                 p.Used.Clear(); p.Stints.Clear(); p.SetTyre(startTyre); p.NextTyre = startTyre == Compound.Hard ? Compound.Medium : Compound.Hard; screen = Screen.Race;
             }
@@ -372,27 +398,28 @@ namespace LightsOut
 
         void DrawLobby()
         {
-            float w = 640; GUILayout.BeginArea(new Rect((UiW - w) / 2, 60, w, UiH - 120), panel);
+            float w = 680; var box = new Rect((UiW - w) / 2, 60, w, UiH - 120); UiKit.Panel(box, 18, .93f);
+            GUILayout.BeginArea(new Rect(box.x + 30, box.y + 24, w - 60, box.height - 48));
             var s = online.Session;
             GUILayout.Label("ROOM " + (s != null ? s.Code : "…"), h2);
-            GUILayout.Label((net.IsHost ? "You are the host. " : "") + "Share the code with friends; public rooms also appear in everyone's room list.", small);
-            if (s != null && GUILayout.Button("Copy code", btn, GUILayout.Width(120))) GUIUtility.systemCopyBuffer = s.Code;
-            GUILayout.Space(6); GUILayout.Label("DRIVERS", small);
-            foreach (var p in net.Players) GUILayout.Label(p.Name + (p.Id == net.LocalId ? " (you)" : "") + "   " + Config.Tyres[p.Tyre].Name + "   " + (p.Ready ? "Ready" : "Not ready"), label);
+            GUILayout.Label((net.IsHost ? "You are the host. " : "") + "Share the code with friends; public rooms also appear in everyone's room list.", note);
+            if (s != null && GUILayout.Button("Copy code", btn, GUILayout.Width(140))) GUIUtility.systemCopyBuffer = s.Code;
+            GUILayout.Label("DRIVERS", small);
+            foreach (var p in net.Players) GUILayout.Label(p.Name + (p.Id == net.LocalId ? " (you)" : "") + "   <color=#8a96a6>" + Config.Tyres[p.Tyre].Name + "</color>   " + (p.Ready ? "<color=#39FF88>Ready</color>" : "<color=#8a96a6>Not ready</color>"), label);
             GUILayout.Label("YOUR STARTING TYRE", small); int ty = net.MyTyre; if (Seg(new[] { "Soft", "Medium", "Hard" }, ref ty)) { net.MyTyre = (byte)ty; net.SendHello(); }
             if (net.IsHost)
             {
-                GUILayout.Label("Circuit: " + tracks[net.Cfg.Track].city, small);
-                GUILayout.BeginHorizontal(); if (GUILayout.Button("◀", btn, GUILayout.Width(40))) { net.Cfg.Track = (net.Cfg.Track + tracks.Length - 1) % tracks.Length; net.BroadcastLobby(); } if (GUILayout.Button("▶", btn, GUILayout.Width(40))) { net.Cfg.Track = (net.Cfg.Track + 1) % tracks.Length; net.BroadcastLobby(); } GUILayout.EndHorizontal();
+                GUILayout.Label("CIRCUIT", small);
+                GUILayout.BeginHorizontal(); if (GUILayout.Button("◀", btn, GUILayout.Width(48))) { net.Cfg.Track = (net.Cfg.Track + tracks.Length - 1) % tracks.Length; net.BroadcastLobby(); } GUILayout.Label(tracks[net.Cfg.Track].city.ToUpperInvariant(), h2); if (GUILayout.Button("▶", btn, GUILayout.Width(48))) { net.Cfg.Track = (net.Cfg.Track + 1) % tracks.Length; net.BroadcastLobby(); } GUILayout.EndHorizontal();
                 int ls = net.Cfg.Laps == 3 ? 0 : net.Cfg.Laps == 5 ? 1 : 2; GUILayout.Label("LAPS", small); if (Seg(new[] { "3", "5", "10" }, ref ls)) { net.Cfg.Laps = new[] { 3, 5, 10 }[ls]; net.BroadcastLobby(); }
                 int ai = net.Cfg.Ai == 0 ? 0 : net.Cfg.Ai == 3 ? 1 : 2; GUILayout.Label("AI CARS", small); if (Seg(new[] { "0", "3", "6" }, ref ai)) { net.Cfg.Ai = new[] { 0, 3, 6 }[ai]; net.BroadcastLobby(); }
                 int inc = System.Array.IndexOf(Incs, net.Cfg.Incidents); GUILayout.Label("INCIDENTS", small); if (Seg(new[] { "Off", "Realistic", "Chaotic" }, ref inc)) { net.Cfg.Incidents = Incs[inc]; net.BroadcastLobby(); }
-                GUILayout.Space(8); if (GUILayout.Button("START RACE", new GUIStyle(btnOn) { fixedHeight = 42 })) net.HostStart();
+                if (GUILayout.Button("START RACE", btnPrimary)) net.HostStart();
             }
             else
             {
-                GUILayout.Label("Circuit: " + tracks[net.Cfg.Track].city + " · " + net.Cfg.Laps + " laps · " + net.Cfg.Ai + " AI", small);
-                if (GUILayout.Button(net.MyReady ? "Not ready" : "Ready", btnOn)) { net.MyReady = !net.MyReady; net.SendHello(); }
+                GUILayout.Label("Circuit: " + tracks[net.Cfg.Track].city + " · " + net.Cfg.Laps + " laps · " + net.Cfg.Ai + " AI", note);
+                if (GUILayout.Button(net.MyReady ? "NOT READY" : "READY", btnPrimary)) { net.MyReady = !net.MyReady; net.SendHello(); }
             }
             if (GUILayout.Button("Leave room", btn)) LeaveOnline();
             GUILayout.EndArea();
@@ -400,72 +427,133 @@ namespace LightsOut
 
         void DrawResults()
         {
-            float w = 640; GUILayout.BeginArea(new Rect((UiW - w) / 2, 80, w, UiH - 160), panel);
             var rows = race.Classification(); var me = rows.Find(r => r.Car.IsPlayer);
-            GUILayout.Label(me != null && me.Status == "DSQ" ? "DISQUALIFIED" : me != null && me.Pos == 1 ? "RACE WINNER" : "P" + (me != null ? me.Pos : 0) + " FINISH", h2);
-            float win = rows[0].Time;
+            float w = 820, rowH = 36, h = 150 + rows.Count * rowH + 70; var box = new Rect((UiW - w) / 2, Mathf.Max(40, (UiH - h) / 2), w, h); UiKit.Panel(box, 18, .93f);
+            string title = me != null && me.Status == "DSQ" ? "DISQUALIFIED" : me != null && me.Pos == 1 ? "RACE WINNER" : "P" + (me != null ? me.Pos : 0) + " FINISH";
+            UiKit.Label(new Rect(box.x + 32, box.y + 22, w - 64, 48), title, 40, me != null && me.Pos == 1 ? Look.Amber : UiKit.Text, TextAnchor.MiddleLeft, false, true);
+            UiKit.Label(new Rect(box.x + 32, box.y + 22, w - 64, 48), track.Src.city.ToUpperInvariant() + "  ·  " + race.Laps + " LAPS", 16, UiKit.Dim, TextAnchor.MiddleRight, false, true);
+            UiKit.Accent(new Rect(box.x + 32, box.y + 74, 300, 3), Look.Cyan);
+            float y = box.y + 92, x = box.x + 24;
+            string[] heads = { "POS", "DRIVER", "TIME", "TYRES", "BEST LAP", "PTS" }; float[] cx = { 12, 76, 190, 430, 560, 700 };
+            for (int k = 0; k < heads.Length; k++) UiKit.Label(new Rect(x + cx[k], y, 140, 22), heads[k], 13, UiKit.Faint, TextAnchor.MiddleLeft, false, true);
+            y += 26; float win = rows[0].Time;
             for (int i = 0; i < rows.Count; i++)
             {
-                var r = rows[i]; string time = r.Status != "" ? r.Status + (r.Car.Dnf != null ? " · " + r.Car.Dnf : "") : i == 0 ? MathX.FormatTime(r.Time) : "+" + (r.Time - win).ToString("0.000");
-                GUILayout.Label((r.Pos > 0 ? r.Pos.ToString() : "–").PadRight(4) + r.Car.Code.PadRight(6) + time.PadRight(22) + string.Join(">", r.Car.Stints.Select(x => x.ToString().Substring(0, 1))).PadRight(10) + MathX.FormatTime(r.Car.BestLap).PadRight(12) + (r.Points > 0 ? r.Points + " pts" : ""), mono);
+                var r = rows[i]; var rr = new Rect(x, y + i * rowH, w - 48, rowH - 4); bool mine = r.Car.IsPlayer;
+                if (mine) UiKit.Tex(rr, UiKit.FadeRight, new Color(Look.Magenta.r, Look.Magenta.g, Look.Magenta.b, .45f)); else UiKit.Fill(rr, new Color(1, 1, 1, i % 2 == 0 ? .05f : .025f), 5);
+                UiKit.Label(new Rect(rr.x + cx[0], rr.y, 40, rr.height), r.Pos > 0 ? r.Pos.ToString() : "–", 20, UiKit.Text, TextAnchor.MiddleLeft, true, true);
+                UiKit.Fill(new Rect(rr.x + 58, rr.y + 6, 4, rr.height - 12), Visuals.Hex(mine ? "#ffd21f" : r.Car.Color), 2);
+                UiKit.Label(new Rect(rr.x + cx[1], rr.y, 100, rr.height), r.Car.Code, 20, UiKit.Text, TextAnchor.MiddleLeft, false, true);
+                string time = r.Status != "" ? r.Status + (r.Car.Dnf != null ? " · " + r.Car.Dnf : "") : i == 0 ? MathX.FormatTime(r.Time) : "+" + (r.Time - win).ToString("0.000");
+                UiKit.Label(new Rect(rr.x + cx[2], rr.y, 230, rr.height), time, 19, r.Status != "" ? UiKit.Dim : UiKit.Text, TextAnchor.MiddleLeft, true);
+                for (int k = 0; k < r.Car.Stints.Count && k < 5; k++) UiKit.TyreRing(new Rect(rr.x + cx[3] + k * 24, rr.y + 5, 22, 22), TyreColor(r.Car.Stints[k]), TyreLetter(r.Car.Stints[k]));
+                UiKit.Label(new Rect(rr.x + cx[4], rr.y, 130, rr.height), MathX.FormatTime(r.Car.BestLap), 19, UiKit.Text, TextAnchor.MiddleLeft, true);
+                if (r.Points > 0) UiKit.Label(new Rect(rr.x + cx[5], rr.y, 60, rr.height), r.Points.ToString(), 20, Look.Cyan, TextAnchor.MiddleLeft, true, true);
             }
+            GUILayout.BeginArea(new Rect(box.x + 24, box.yMax - 62, w - 48, 50)); GUILayout.BeginHorizontal();
             if (net.InRace) { if (net.IsHost && GUILayout.Button("Back to room", btnOn)) net.HostBackToLobby(); if (GUILayout.Button("Leave room", btn)) LeaveOnline(); }
             else { if (GUILayout.Button("Race again", btnOn)) StartSingle(); if (GUILayout.Button("Menu", btn)) { screen = Screen.Menu; StartAttract(); } }
-            GUILayout.EndArea();
+            GUILayout.EndHorizontal(); GUILayout.EndArea();
         }
 
         void DrawHud()
         {
-            var p = race.Player; float W = UiW, H = UiH;
-            // timing tower
-            var order = race.Order(); int n = track.N;
-            GUILayout.BeginArea(new Rect(12, 12, 270, 50 + order.Count * 22), panel);
-            var lead = order[0]; GUILayout.Label("LAP " + Mathf.Min(race.Laps, Mathf.Max(1, lead.MaxLaps + 1)) + "/" + race.Laps, small);
+            var p = race.Player; float W = UiW, H = UiH; Color mg = Look.Magenta, cy = Look.Cyan;
+            // ---- timing tower ----
+            var order = race.Order(); float tx = 28, ty = 28, tw = 304, rh = 32;
+            var lead = order[0]; var hr = new Rect(tx, ty, tw, 38); UiKit.Fill(hr, UiKit.Glass, 8); UiKit.Fill(new Rect(tx, ty + 9, 3, 20), cy, 1.5f);
+            UiKit.Label(new Rect(tx + 14, ty, 80, 38), "LAP", 15, UiKit.Dim, TextAnchor.MiddleLeft, false, true);
+            UiKit.Label(new Rect(tx + 52, ty, 120, 38), Mathf.Min(race.Laps, Mathf.Max(1, lead.MaxLaps + 1)) + "<color=#8a96a6> / " + race.Laps + "</color>", 22, UiKit.Text, TextAnchor.MiddleLeft, true, true);
+            UiKit.Label(new Rect(tx, ty, tw - 12, 38), track.Src.city.ToUpperInvariant(), 14, UiKit.Dim, TextAnchor.MiddleRight, false, true);
             for (int i = 0; i < order.Count; i++)
             {
-                var c = order[i]; string gap = i == 0 ? "Leader" : c.Retired ? "DNF" : "+" + ((order[i - 1].PF - c.PF) * Config.Step / Config.GapSpeed).ToString("0.0");
-                string tag = c.Pit != null ? " PIT" : c.Penalty > 0 ? " +" + c.Penalty : c.OtActive ? " OT" : "";
-                GUILayout.Label((i + 1).ToString().PadRight(3) + c.Code.PadRight(5) + gap.PadRight(8) + Config.Tyres[(int)c.Tyre].Name.Substring(0, 1) + tag, c.IsPlayer ? rowMe : row);
+                var c = order[i]; var rr = new Rect(tx, ty + 42 + i * rh, tw, rh - 2);
+                UiKit.Fill(rr, new Color(.025f, .035f, .065f, c.IsPlayer ? .9f : .68f), 5);
+                if (c.IsPlayer) UiKit.Tex(rr, UiKit.FadeRight, new Color(mg.r, mg.g, mg.b, .55f));
+                UiKit.Label(new Rect(rr.x, rr.y, 34, rr.height), (i + 1).ToString(), 18, UiKit.Text, TextAnchor.MiddleCenter, true, true);
+                UiKit.Fill(new Rect(rr.x + 36, rr.y + 5, 4, rr.height - 10), Visuals.Hex(c.IsPlayer ? "#ffd21f" : c.Color), 2);
+                UiKit.Label(new Rect(rr.x + 50, rr.y, 60, rr.height), c.Code, 19, UiKit.Text, TextAnchor.MiddleLeft, false, true);
+                if (c.Pit != null) UiKit.Pill(new Rect(rr.x + 104, rr.y + 6, 36, rr.height - 12), "PIT", Look.Amber, UiKit.Ink, 11);
+                else if (c.Penalty > 0) UiKit.Pill(new Rect(rr.x + 104, rr.y + 6, 36, rr.height - 12), "+" + c.Penalty, new Color(1f, .25f, .25f), Color.white, 11);
+                else if (c.OtActive) UiKit.Pill(new Rect(rr.x + 104, rr.y + 6, 36, rr.height - 12), "OT", new Color(.22f, 1f, .53f), UiKit.Ink, 11);
+                string gap = i == 0 ? "LEADER" : c.Retired ? "OUT" : "+" + ((order[i - 1].PF - c.PF) * Config.Step / Config.GapSpeed).ToString("0.0");
+                UiKit.Label(new Rect(rr.x + 150, rr.y, tw - 150 - 40, rr.height), gap, i == 0 ? 13 : 17, i == 0 || c.Retired ? UiKit.Dim : UiKit.Text, TextAnchor.MiddleRight, i != 0, i == 0);
+                UiKit.TyreRing(new Rect(rr.xMax - 31, rr.y + 4, 22, 22), TyreColor(c.Tyre), TyreLetter(c.Tyre));
             }
-            GUILayout.EndArea();
-            // flags
+            // ---- flags and start lights ----
             string flag = race.Neutral != null ? (race.Neutral.Type == "SC" ? (race.Neutral.Phase == "in" ? "SAFETY CAR IN THIS LAP" : "SAFETY CAR") : (race.Neutral.Phase == "ending" ? "VSC ENDING" : "VIRTUAL SAFETY CAR")) : p != null && p.Blue ? "BLUE FLAG" : p != null && race.SectorYellow(p.Idx) == 2 ? "DOUBLE YELLOW" : p != null && race.SectorYellow(p.Idx) == 1 ? "YELLOW FLAG" : race.Time < race.BlackWhiteUntil ? "BLACK AND WHITE FLAG" : race.Time < race.GreenUntil ? "GREEN FLAG" : "";
-            if (flag != "") GUI.Label(new Rect(W / 2 - 220, 14, 440, 40), flag, new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter, normal = { textColor = flag.StartsWith("GREEN") ? new Color(.2f, .85f, .45f) : flag.StartsWith("BLUE") ? new Color(.3f, .55f, 1f) : Look.Amber } });
-            if (race.Mode == SessionMode.Race && !race.Started) { int lit = Mathf.Min(5, Mathf.FloorToInt(race.Time - .4f)); GUI.Label(new Rect(W / 2 - 150, 60, 300, 40), new string('●', Mathf.Max(0, lit)) + new string('○', 5 - Mathf.Max(0, lit)), new GUIStyle(h2) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1, .2f, .15f) } }); }
+            if (flag != "")
+            {
+                Color fc = flag.StartsWith("GREEN") ? new Color(.2f, .9f, .45f) : flag.StartsWith("BLUE") ? new Color(.25f, .55f, 1f) : flag.StartsWith("BLACK") ? new Color(.9f, .92f, .95f) : Look.Amber;
+                var fr = new Rect(W / 2 - 250, 28, 500, 46); UiKit.Fill(fr, new Color(fc.r, fc.g, fc.b, .94f), 8); UiKit.Label(fr, flag, 24, UiKit.Ink, TextAnchor.MiddleCenter, false, true);
+            }
+            if (race.Mode == SessionMode.Race && !race.Started)
+            {
+                int lit = Mathf.Clamp(Mathf.FloorToInt(race.Time - .4f), 0, 5); var lr = new Rect(W / 2 - 190, 88, 380, 76); UiKit.Fill(lr, new Color(.02f, .02f, .03f, .9f), 16); UiKit.Outline(lr, new Color(1, 1, 1, .1f), 1, 16);
+                for (int k = 0; k < 5; k++)
+                {
+                    var c0 = new Vector2(lr.x + 50 + k * 70, lr.center.y);
+                    if (k < lit) { UiKit.Dot(c0, 96, new Color(1f, .1f, .08f, .35f)); UiKit.Dot(c0, 46, new Color(1f, .16f, .1f)); UiKit.Dot(c0 + new Vector2(-6, -7), 14, new Color(1, .8f, .75f, .7f)); }
+                    else UiKit.Dot(c0, 46, new Color(.16f, .04f, .04f));
+                }
+            }
             if (p == null) return;
-            // lap box
-            GUILayout.BeginArea(new Rect(W - 212, 12, 200, 100), panel);
-            GUILayout.Label("LAP " + (race.Mode == SessionMode.Race ? Mathf.Min(race.Laps, Mathf.Max(1, p.MaxLaps + 1)) + "/" + race.Laps : Mathf.Max(1, p.MaxLaps + 1).ToString()), h2);
-            GUILayout.Label(MathX.FormatTime(race.Mode == SessionMode.Race ? (p.Finished ? p.FinishTime : (race.Started ? race.Time - race.RaceStart : 0)) : (p.MaxLaps >= 0 ? race.Time - p.LapStart : 0)), mono);
-            GUILayout.Label("Last " + MathX.FormatTime(p.LastLap) + (race.Neutral != null && race.Neutral.Type == "VSC" ? "   VSC Δ " + p.VscDelta.ToString("+0.0;-0.0") : ""), small);
-            GUILayout.EndArea();
-            // dash
-            GUILayout.BeginArea(new Rect(W / 2 - 220, H - 120, 440, 108), panel);
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(Mathf.RoundToInt(Mathf.Abs(p.VF) * 3.6f).ToString(), big, GUILayout.Width(130));
-            GUILayout.Label(Gear(p), new GUIStyle(big) { alignment = TextAnchor.MiddleLeft, normal = { textColor = Look.Cyan } }, GUILayout.Width(40));
-            GUILayout.BeginVertical();
-            GUILayout.Label("Battery · " + (p.RechargeMode ? "Recharge" : "Balanced") + "   " + p.Soc.ToString("0.0") + " MJ", small);
-            var r = GUILayoutUtility.GetRect(200, 10); GUI.DrawTexture(r, Texture2D.grayTexture); GUI.DrawTexture(new Rect(r.x, r.y, r.width * Mathf.Clamp01(p.Soc / Config.ErsCap), r.height), Bar(p.OtActive ? new Color(.18f, .84f, .45f) : p.Boost && p.Dep > 0 ? Look.Amber : Look.Cyan));
-            GUILayout.Label((p.StraightMode ? "STRAIGHT MODE" : "Corner mode") + "   " + (p.Boost && p.Dep > 0 ? "BOOST" : "") + "   " + (p.OtActive ? "OVERTAKE ON" : p.OtArmed ? "OVERTAKE READY" : ""), small);
-            GUILayout.EndVertical(); GUILayout.EndHorizontal(); GUILayout.EndArea();
-            // tyres & pit
-            GUILayout.BeginArea(new Rect(12, H - 120, 260, 108), panel);
-            GUILayout.Label(Config.Tyres[(int)p.Tyre].Name + " · life " + Mathf.RoundToInt(Mathf.Max(0, 1 - p.Wear) * 100) + "%", label);
-            GUILayout.Label("Next: " + Config.Tyres[(int)p.NextTyre].Name + "   " + (p.Pit != null ? (p.Pit.Phase == "stop" ? "Stationary " + Mathf.Max(0, p.Pit.StopTime - p.Pit.Stop).ToString("0.0") + " s" : "Pit limiter 80") : p.BoxRequest ? "BOX THIS LAP" : "Box: P"), small);
-            GUILayout.Label(race.Mode == SessionMode.Race && p.Used.Count < 2 ? "Mandatory stop: use a 2nd compound" : p.Damage > .05f ? "Front wing damage " + Mathf.RoundToInt(p.Damage * 100) + "%" : "Stops " + p.Stops, small);
-            GUILayout.EndArea();
-            // radio
-            float ry = H - 140 - radio.Count * 26;
-            foreach (var m in radio) { if (Time.time - m.Key < 7) GUI.Label(new Rect(12, ry, 420, 24), "RADIO  " + m.Value, label); ry += 26; }
-            // minimap
+            // ---- lap and time ----
+            var lb = new Rect(W - 28 - 280, 28, 280, 112); UiKit.Panel(lb, 12);
+            UiKit.Label(new Rect(lb.x + 20, lb.y + 12, 60, 24), "LAP", 15, UiKit.Dim, TextAnchor.MiddleLeft, false, true);
+            UiKit.Label(new Rect(lb.x + 20, lb.y + 12, lb.width - 40, 24), race.Mode == SessionMode.Race ? Mathf.Min(race.Laps, Mathf.Max(1, p.MaxLaps + 1)) + "<color=#8a96a6> / " + race.Laps + "</color>" : Mathf.Max(1, p.MaxLaps + 1).ToString(), 22, UiKit.Text, TextAnchor.MiddleRight, true, true);
+            UiKit.Label(new Rect(lb.x + 20, lb.y + 36, lb.width - 40, 46), MathX.FormatTime(race.Mode == SessionMode.Race ? (p.Finished ? p.FinishTime : (race.Started ? race.Time - race.RaceStart : 0)) : (p.MaxLaps >= 0 ? race.Time - p.LapStart : 0)), 40, UiKit.Text, TextAnchor.MiddleLeft, true, true);
+            UiKit.Label(new Rect(lb.x + 20, lb.y + 82, lb.width - 40, 22), "LAST  <color=#edf4fa>" + MathX.FormatTime(p.LastLap) + "</color>" + (race.Neutral != null && race.Neutral.Type == "VSC" ? "    VSC Δ <color=#FFB000>" + p.VscDelta.ToString("+0.0;-0.0") + "</color>" : ""), 15, UiKit.Dim, TextAnchor.MiddleLeft, true);
+            // ---- dash: shift bar, gear, speed, energy ----
+            var d = new Rect(W / 2 - 340, H - 28 - 158, 680, 158); UiKit.Panel(d, 16);
+            float kmh = Mathf.Abs(p.VF) * 3.6f;
+            UiKit.SegBar(new Rect(d.x + 26, d.y + 18, d.width - 60, 12), 34, kmh / 340f, i => i < 20 ? cy : i < 29 ? Look.Amber : mg);
+            var gr = new Rect(d.x + 26, d.y + 46, 92, 92); UiKit.Fill(gr, new Color(1, 1, 1, .06f), 14); UiKit.Outline(gr, new Color(cy.r, cy.g, cy.b, .7f), 2, 14);
+            UiKit.Label(gr, Gear(p), 70, cy, TextAnchor.MiddleCenter, true, true);
+            UiKit.Label(new Rect(d.x + 126, d.y + 40, 200, 86), Mathf.RoundToInt(kmh).ToString(), 92, UiKit.Text, TextAnchor.MiddleRight, true, true);
+            UiKit.Label(new Rect(d.x + 126, d.y + 122, 200, 20), "KM/H", 13, UiKit.Dim, TextAnchor.MiddleRight, false, true);
+            float ex = d.x + 362, ew = d.xMax - 26 - ex; bool boosting = p.Boost && p.Dep > 0;
+            UiKit.Label(new Rect(ex, d.y + 44, 160, 22), "ENERGY  <color=#8a96a6>" + (p.RechargeMode ? "RECHARGE" : "BALANCED") + "</color>", 14, UiKit.Text, TextAnchor.MiddleLeft, false, true);
+            UiKit.Label(new Rect(ex, d.y + 40, ew, 28), p.Soc.ToString("0.0") + "<size=13><color=#8a96a6>  MJ</color></size>", 24, UiKit.Text, TextAnchor.MiddleRight, true, true);
+            Color ec = p.OtActive ? new Color(.22f, 1f, .53f) : boosting ? Look.Amber : cy;
+            UiKit.SegBar(new Rect(ex, d.y + 74, ew - 6, 16), 18, p.Soc / Config.ErsCap, i => ec);
+            float pw = (ew - 16) / 3f;
+            UiKit.Lamp(new Rect(ex, d.y + 106, pw, 28), "STRAIGHT", p.StraightMode, cy);
+            UiKit.Lamp(new Rect(ex + pw + 8, d.y + 106, pw, 28), "BOOST", boosting, Look.Amber);
+            UiKit.Lamp(new Rect(ex + (pw + 8) * 2, d.y + 106, pw, 28), p.OtActive ? "OVERTAKE" : p.OtArmed ? "OT READY" : "OVERTAKE", p.OtActive || p.OtArmed, p.OtActive ? new Color(.22f, 1f, .53f) : new Color(.7f, .75f, .8f));
+            // ---- tyres and pit ----
+            var tp = new Rect(28, H - 28 - 158, 320, 158); UiKit.Panel(tp, 16);
+            float life = Mathf.Max(0, 1 - p.Wear); Color tc = TyreColor(p.Tyre);
+            UiKit.TyreRing(new Rect(tp.x + 22, tp.y + 22, 84, 84), tc, TyreLetter(p.Tyre));
+            UiKit.Label(new Rect(tp.x + 122, tp.y + 20, 180, 28), Config.Tyres[(int)p.Tyre].Name.ToUpperInvariant(), 22, UiKit.Text, TextAnchor.MiddleLeft, false, true);
+            UiKit.Label(new Rect(tp.x + 122, tp.y + 46, 180, 36), Mathf.RoundToInt(life * 100) + "<size=14><color=#8a96a6> % LIFE</color></size>", 30, life < .25f ? new Color(1f, .3f, .3f) : UiKit.Text, TextAnchor.MiddleLeft, true, true);
+            UiKit.SegBar(new Rect(tp.x + 122, tp.y + 88, 170, 10), 10, life, i => life < .25f ? new Color(1f, .3f, .3f) : life < .5f ? Look.Amber : tc);
+            UiKit.Label(new Rect(tp.x + 22, tp.y + 118, 50, 26), "NEXT", 13, UiKit.Dim, TextAnchor.MiddleLeft, false, true);
+            UiKit.TyreRing(new Rect(tp.x + 62, tp.y + 120, 22, 22), TyreColor(p.NextTyre), TyreLetter(p.NextTyre));
+            string pit = p.Pit != null ? (p.Pit.Phase == "stop" ? "STOPPED " + Mathf.Max(0, p.Pit.StopTime - p.Pit.Stop).ToString("0.0") : "PIT LIMITER 80") : p.BoxRequest ? "BOX THIS LAP" : race.Mode == SessionMode.Race && p.Used.Count < 2 ? "STOP REQUIRED" : p.Damage > .05f ? "WING DAMAGE " + Mathf.RoundToInt(p.Damage * 100) + "%" : "STOPS " + p.Stops;
+            bool pitHot = p.Pit != null || p.BoxRequest; UiKit.Lamp(new Rect(tp.x + 100, tp.y + 118, tp.width - 122, 26), pit, pitHot || p.Damage > .05f, pitHot ? Look.Amber : new Color(1f, .35f, .3f));
+            // ---- radio ----
+            float ry = tp.y - 12 - radio.Count * 36;
+            foreach (var m in radio)
+            {
+                if (Time.time - m.Key < 7) { var rr = new Rect(28, ry, 520, 32); UiKit.Fill(rr, UiKit.Glass, 8); UiKit.Pill(new Rect(rr.x + 8, rr.y + 6, 58, 20), "RADIO", cy, UiKit.Ink, 11); UiKit.Label(new Rect(rr.x + 78, rr.y, rr.width - 88, rr.height), m.Value, 16, UiKit.Text); }
+                ry += 36;
+            }
+            // ---- minimap ----
             if (builder.MapTexture)
             {
-                var mr = new Rect(W - 172, H - 172, 160, 160); GUI.DrawTexture(mr, builder.MapTexture);
-                float k = 160f / builder.MapSize;
-                foreach (var c in race.Cars) { if (c.Hidden) continue; var mp = builder.MapPoint(c.X, c.Y); GUI.DrawTexture(new Rect(mr.x + mp.x * k - 3, mr.y + mp.y * k - 3, 6, 6), Bar(c.IsPlayer ? Look.Magenta : Visuals.Hex(c.Color))); }
+                var mp0 = new Rect(W - 28 - 230, H - 28 - 230, 230, 230); UiKit.Panel(mp0, 16);
+                var mr = new Rect(mp0.x + 15, mp0.y + 15, 200, 200); UiKit.Tex(mr, builder.MapTexture, Color.white);
+                float k = mr.width / builder.MapSize;
+                foreach (var c in race.Cars)
+                {
+                    if (c.Hidden || c.IsPlayer) continue; var mp = builder.MapPoint(c.X, c.Y); var at = new Vector2(mr.x + mp.x * k, mr.y + mp.y * k);
+                    UiKit.Dot(at, 11, UiKit.Ink); UiKit.Dot(at, 8, Visuals.Hex(c.Color));
+                }
+                var me = builder.MapPoint(p.X, p.Y); var pm = new Vector2(mr.x + me.x * k, mr.y + me.y * k); float pulse = .5f + .5f * Mathf.Sin(Time.unscaledTime * 5f);
+                UiKit.Dot(pm, 22 + pulse * 10, new Color(mg.r, mg.g, mg.b, .3f)); UiKit.Dot(pm, 15, Color.white); UiKit.Dot(pm, 11, mg);
             }
-            if (paused) GUI.Label(new Rect(0, H / 2 - 30, W, 60), "PAUSED  (Esc)", new GUIStyle(h1) { alignment = TextAnchor.MiddleCenter });
+            if (paused) { UiKit.Fill(new Rect(0, 0, W, H), new Color(0, 0, 0, .45f)); UiKit.Label(new Rect(0, H / 2 - 50, W, 70), "PAUSED", 64, UiKit.Text, TextAnchor.MiddleCenter, false, true); UiKit.Label(new Rect(0, H / 2 + 20, W, 30), "PRESS ESC TO RESUME", 16, UiKit.Dim, TextAnchor.MiddleCenter, false, true); }
         }
         static string Gear(Car p)
         {
@@ -473,7 +561,5 @@ namespace LightsOut
             for (int g = 1; g < Config.GearTops.Length; g++) if (p.VF < Config.GearTops[g] || g == Config.GearTops.Length - 1) return g.ToString();
             return "8";
         }
-        readonly Dictionary<Color, Texture2D> bars = new Dictionary<Color, Texture2D>();
-        Texture2D Bar(Color c) { Texture2D t; if (!bars.TryGetValue(c, out t)) { t = new Texture2D(1, 1); t.SetPixel(0, 0, c); t.Apply(); bars[c] = t; } return t; }
     }
 }
